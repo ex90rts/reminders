@@ -26,7 +26,7 @@
 		B00100000000000000000011 /* TimedReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000011 /* TimedReminderScheduler.swift */; };
 		B00100000000000000000012 /* TimedReminderSnoozeQueue.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000012 /* TimedReminderSnoozeQueue.swift */; };
 		B00100000000000000000013 /* WindowDragArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000013 /* WindowDragArea.swift */; };
-		B00100000000000000000014 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000014 /* main.swift */; };
+		B00100000000000000000014 /* RemindersApplication.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00100000000000000000014 /* RemindersApplication.swift */; };
 		B00200000000000000000001 /* AppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000001 /* AppIcon.icns */; };
 		B00200000000000000000002 /* MenuBarIcon.svg in Resources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000002 /* MenuBarIcon.svg */; };
 		B00200000000000000000003 /* AlarmBg in Resources */ = {isa = PBXBuildFile; fileRef = F00200000000000000000003 /* AlarmBg */; };
@@ -66,7 +66,7 @@
 		F00100000000000000000011 /* TimedReminderScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimedReminderScheduler.swift; sourceTree = "<group>"; };
 		F00100000000000000000012 /* TimedReminderSnoozeQueue.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimedReminderSnoozeQueue.swift; sourceTree = "<group>"; };
 		F00100000000000000000013 /* WindowDragArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowDragArea.swift; sourceTree = "<group>"; };
-		F00100000000000000000014 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		F00100000000000000000014 /* RemindersApplication.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersApplication.swift; sourceTree = "<group>"; };
 		F00200000000000000000001 /* AppIcon.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = AppIcon.icns; sourceTree = "<group>"; };
 		F00200000000000000000002 /* MenuBarIcon.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = MenuBarIcon.svg; sourceTree = "<group>"; };
 		F00200000000000000000003 /* AlarmBg */ = {isa = PBXFileReference; lastKnownFileType = folder; path = AlarmBg; sourceTree = "<group>"; };
@@ -143,7 +143,7 @@
 				F00100000000000000000011 /* TimedReminderScheduler.swift */,
 				F00100000000000000000012 /* TimedReminderSnoozeQueue.swift */,
 				F00100000000000000000013 /* WindowDragArea.swift */,
-				F00100000000000000000014 /* main.swift */,
+				F00100000000000000000014 /* RemindersApplication.swift */,
 			);
 			path = Reminders;
 			sourceTree = "<group>";
@@ -310,7 +310,7 @@
 				B00100000000000000000011 /* TimedReminderScheduler.swift in Sources */,
 				B00100000000000000000012 /* TimedReminderSnoozeQueue.swift in Sources */,
 				B00100000000000000000013 /* WindowDragArea.swift in Sources */,
-				B00100000000000000000014 /* main.swift in Sources */,
+				B00100000000000000000014 /* RemindersApplication.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

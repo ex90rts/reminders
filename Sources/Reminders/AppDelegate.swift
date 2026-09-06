@@ -75,9 +75,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         let settingsItem = menuItem("打开设置…", action: #selector(openSettings))
         settingsItem.image = nil
-        if #available(macOS 27.0, *) {
-            settingsItem.preferredImageVisibility = .hidden
-        }
         menu.addItem(settingsItem)
 
         let visibilityItem = menuItem("显示常驻提醒", action: #selector(toggleOverlay))
