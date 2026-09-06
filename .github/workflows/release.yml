@@ -1,0 +1,68 @@
+name: Release macOS App
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Validate release tag
+        shell: bash
+        run: |
+          APP_VERSION="${GITHUB_REF_NAME#v}"
+          if [[ ! "$APP_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tag must use the vX.Y.Z format; received '$GITHUB_REF_NAME'." >&2
+            exit 1
+          fi
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        shell: bash
+        run: |
+          DEVELOPER_DIR="$(xcode-select -p)" \
+            ./scripts/build-app.sh --test
+
+      - name: Build release archive
+        shell: bash
+        run: |
+          DEVELOPER_DIR="$(xcode-select -p)" \
+            ./scripts/build-app.sh \
+              --version "$APP_VERSION" \
+              --skip-icons
+
+      - name: Verify release archive
+        shell: bash
+        run: |
+          codesign --verify --deep --strict "dist/清醒贴.app"
+          test -f "dist/清醒贴-macOS15-arm64.zip"
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ASSET="dist/清醒贴-macOS15-arm64.zip"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$ASSET" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$ASSET" \
+              --verify-tag \
+              --title "清醒贴 $APP_VERSION" \
+              --generate-notes
+          fi

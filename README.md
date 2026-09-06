@@ -2,6 +2,12 @@
 
 一个面向 macOS 15.0+ 的原生桌面提醒应用。它把 1 到任意多条行为提示作为一组贴纸悬浮在桌面上，并通过菜单栏图标集中管理。
 
+## 下载
+
+前往 [GitHub Releases](https://github.com/ex90rts/reminders/releases/latest) 下载最新的 `清醒贴-macOS15-arm64.zip`。当前发布包支持 macOS 15.0+ 和 Apple Silicon。
+
+当前自动发布使用 ad-hoc 签名，尚未经过 Apple 公证，适合测试分发；macOS 可能在首次打开时显示安全提示。
+
 ## 功能
 
 - 整组贴纸可拖动，位置自动保存；显示器布局改变后会自动校正回可见区域
@@ -26,6 +32,17 @@ open "dist/清醒贴.app"
 每次成功打包都会将语义版本的 patch 位自动加 1，并把构建版本写为当前时间的 `YYYYMMDDHHmmss`；需要指定版本时可使用 `--version x.y.z`。
 
 也可以使用 Xcode 打开 `Package.swift` 后直接运行 `Reminders` scheme。
+
+## 发布新版本
+
+推送符合 `vX.Y.Z` 格式的 tag 后，GitHub Actions 会自动运行测试、构建对应版本，并把应用压缩包上传到 GitHub Release：
+
+```bash
+git tag v1.0.2
+git push origin v1.0.2
+```
+
+Release 的应用版本取自 tag；例如 `v1.0.2` 会构建为 `1.0.2`。如需重新执行同一 tag 的工作流，已有 Release 中的压缩包会被覆盖更新。
 
 ## 使用
 
