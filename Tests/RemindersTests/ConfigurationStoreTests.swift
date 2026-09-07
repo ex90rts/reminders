@@ -148,6 +148,27 @@ final class ConfigurationStoreTests: XCTestCase {
         )
     }
 
+    func testSpecificDateTimedReminderPersistsAcrossStoreInstances() throws {
+        let calendar = utcGregorianCalendar()
+        let targetDate = try makeDate(2026, 10, 8, 14, 25, calendar: calendar)
+        var firstStore: ConfigurationStore? = ConfigurationStore(defaults: defaults, storageKey: "test")
+        firstStore?.configuration.timedReminders = [
+            TimedReminderItem(
+                text: "单次会议",
+                frequency: .specificDate,
+                hour: 14,
+                minute: 25,
+                specificDate: targetDate
+            )
+        ]
+        firstStore = nil
+
+        let restoredStore = ConfigurationStore(defaults: defaults, storageKey: "test")
+
+        XCTAssertEqual(restoredStore.configuration.timedReminders.first?.frequency, .specificDate)
+        XCTAssertEqual(restoredStore.configuration.timedReminders.first?.specificDate, targetDate)
+    }
+
     func testLegacyTimedReminderUsesDefaultIntervalHours() throws {
         var configuration = AppConfiguration.initial
         configuration.timedReminders = [
@@ -170,6 +191,7 @@ final class ConfigurationStoreTests: XCTestCase {
             TimedReminderItem.defaultIntervalHours
         )
         XCTAssertNil(store.configuration.timedReminders.first?.soundName)
+        XCTAssertNil(store.configuration.timedReminders.first?.specificDate)
     }
 
     func testTimedReminderValuesAreSanitized() {
@@ -358,6 +380,50 @@ final class ConfigurationStoreTests: XCTestCase {
         let occurrence = TimedReminderSchedule.nextOccurrence(after: monday, for: reminder, calendar: calendar)
 
         XCTAssertEqual(occurrence?.date, try makeDate(2024, 1, 3, 18, 15, calendar: calendar))
+    }
+
+    func testSpecificDateTimedReminderOnlyOccursOnce() throws {
+        let calendar = utcGregorianCalendar()
+        let targetDate = try makeDate(2024, 1, 3, 18, 15, calendar: calendar)
+        let reminder = TimedReminderItem(
+            text: "提交材料",
+            frequency: .specificDate,
+            hour: 18,
+            minute: 15,
+            specificDate: targetDate
+        )
+
+        let upcoming = TimedReminderSchedule.nextOccurrence(
+            after: try makeDate(2024, 1, 3, 18, 14, calendar: calendar),
+            for: reminder,
+            calendar: calendar
+        )
+        let expired = TimedReminderSchedule.nextOccurrence(
+            after: targetDate,
+            for: reminder,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(upcoming?.date, targetDate)
+        XCTAssertNil(expired)
+    }
+
+    func testSpecificDateTimedReminderWithoutDateHasNoOccurrence() throws {
+        let calendar = utcGregorianCalendar()
+        let reminder = TimedReminderItem(
+            text: "尚未选择日期",
+            frequency: .specificDate,
+            hour: 9,
+            minute: 0
+        )
+
+        let occurrence = TimedReminderSchedule.nextOccurrence(
+            after: try makeDate(2024, 1, 1, 8, 0, calendar: calendar),
+            for: reminder,
+            calendar: calendar
+        )
+
+        XCTAssertNil(occurrence)
     }
 
     func testDisabledTimedReminderHasNoOccurrence() throws {

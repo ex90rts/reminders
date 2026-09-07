@@ -28,9 +28,15 @@ enum TimedReminderSchedule {
     ) -> TimedReminderOccurrence? {
         guard reminder.isEnabled else { return nil }
 
-        if reminder.frequency == .hourlyInterval {
+        switch reminder.frequency {
+        case .hourlyInterval:
             return nextHourlyIntervalDate(after: date, for: reminder, calendar: calendar)
                 .map { TimedReminderOccurrence(reminderID: reminder.id, date: $0) }
+        case .specificDate:
+            guard let specificDate = reminder.specificDate, specificDate > date else { return nil }
+            return TimedReminderOccurrence(reminderID: reminder.id, date: specificDate)
+        case .daily, .selectedWeekdays:
+            break
         }
 
         let weekdays: [ReminderWeekday?]
@@ -41,6 +47,8 @@ enum TimedReminderSchedule {
             weekdays = [nil]
         case .selectedWeekdays:
             weekdays = reminder.selectedWeekdays.map(Optional.some)
+        case .specificDate:
+            preconditionFailure("Specific dates are handled before weekday matching")
         }
 
         let nextDate = weekdays.compactMap { weekday -> Date? in

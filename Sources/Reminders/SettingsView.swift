@@ -237,7 +237,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Picker(
                         "重复",
-                        selection: timedReminderBinding(for: reminder, keyPath: \.frequency)
+                        selection: timedReminderFrequencyBinding(for: reminder)
                     ) {
                         ForEach(TimedReminderFrequency.allCases, id: \.self) { frequency in
                             Text(frequency.title).tag(frequency)
@@ -428,6 +428,13 @@ struct SettingsView: View {
                     }
                 }
             }
+
+        case .specificDate:
+            recurrenceDetailSurface(systemImage: "calendar.badge.clock") {
+                recurrenceControlGroup("提醒时间") {
+                    specificDatePicker(for: reminder)
+                }
+            }
         }
     }
 
@@ -550,6 +557,13 @@ struct SettingsView: View {
         GraphicalTimePickerButton(
             selection: timedReminderTimeBinding(for: reminder),
             accessibilityLabel: accessibilityLabel
+        )
+    }
+
+    private func specificDatePicker(for reminder: TimedReminderItem) -> some View {
+        GraphicalDateTimePickerButton(
+            selection: specificDateBinding(for: reminder),
+            accessibilityLabel: "指定日期提醒时间"
         )
     }
 
@@ -815,7 +829,7 @@ struct SettingsView: View {
                 aboutFeatureRow(
                     systemImage: "alarm.fill",
                     title: "定时提醒",
-                    description: "按小时、每天或指定星期弹出提醒。"
+                    description: "按小时、每天、指定星期或日期弹出提醒。"
                 )
 
                 settingsRowDivider
@@ -1145,6 +1159,66 @@ struct SettingsView: View {
         )
     }
 
+    private func timedReminderFrequencyBinding(
+        for reminder: TimedReminderItem
+    ) -> Binding<TimedReminderFrequency> {
+        Binding(
+            get: {
+                store.configuration.timedReminders
+                    .first(where: { $0.id == reminder.id })?.frequency ?? reminder.frequency
+            },
+            set: { frequency in
+                guard let index = store.configuration.timedReminders.firstIndex(where: { $0.id == reminder.id }) else {
+                    return
+                }
+
+                store.configuration.timedReminders[index].frequency = frequency
+                guard frequency == .specificDate else { return }
+
+                let currentReminder = store.configuration.timedReminders[index]
+                if currentReminder.specificDate.map({ $0 > Date() }) == true { return }
+                store.configuration.timedReminders[index].specificDate = nextSpecificDate(
+                    hour: currentReminder.hour,
+                    minute: currentReminder.minute
+                )
+            }
+        )
+    }
+
+    private func specificDateBinding(for reminder: TimedReminderItem) -> Binding<Date> {
+        Binding(
+            get: {
+                let currentReminder = store.configuration.timedReminders
+                    .first(where: { $0.id == reminder.id }) ?? reminder
+                return currentReminder.specificDate
+                    ?? nextSpecificDate(hour: currentReminder.hour, minute: currentReminder.minute)
+            },
+            set: { date in
+                guard let index = store.configuration.timedReminders.firstIndex(where: { $0.id == reminder.id }) else {
+                    return
+                }
+                let calendar = Calendar.autoupdatingCurrent
+                let components = calendar.dateComponents([.hour, .minute], from: date)
+                let normalizedDate = calendar.date(bySetting: .second, value: 0, of: date) ?? date
+                store.configuration.timedReminders[index].specificDate = normalizedDate
+                store.configuration.timedReminders[index].hour = components.hour ?? 0
+                store.configuration.timedReminders[index].minute = components.minute ?? 0
+            }
+        )
+    }
+
+    private func nextSpecificDate(hour: Int, minute: Int, now: Date = Date()) -> Date {
+        let calendar = Calendar.autoupdatingCurrent
+        let today = calendar.date(
+            bySettingHour: hour,
+            minute: minute,
+            second: 0,
+            of: now
+        ) ?? now
+        if today > now { return today }
+        return calendar.date(byAdding: .day, value: 1, to: today) ?? now.addingTimeInterval(86_400)
+    }
+
     private var backgroundColorBinding: Binding<Color> {
         Binding(
             get: { store.configuration.backgroundColor.color },
@@ -1354,6 +1428,62 @@ private struct GraphicalTimePickerButton: View {
             }
             .padding(14)
             .frame(minWidth: 250)
+        }
+    }
+}
+
+private struct GraphicalDateTimePickerButton: View {
+    @Binding var selection: Date
+    let accessibilityLabel: String
+
+    @State private var isPickerPresented = false
+
+    var body: some View {
+        Button {
+            isPickerPresented = true
+        } label: {
+            HStack(spacing: 6) {
+                Text(selection.formatted(date: .abbreviated, time: .shortened))
+                    .monospacedDigit()
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .accessibilityLabel(accessibilityLabel)
+        .accessibilityValue(selection.formatted(date: .long, time: .shortened))
+        .popover(isPresented: $isPickerPresented, arrowEdge: .bottom) {
+            VStack(spacing: 12) {
+                DatePicker(
+                    accessibilityLabel,
+                    selection: $selection,
+                    displayedComponents: [.date, .hourAndMinute]
+                )
+                .labelsHidden()
+                .datePickerStyle(.graphical)
+
+                Divider()
+
+                HStack {
+                    Text("选择提醒日期和时间")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button("完成") {
+                        isPickerPresented = false
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(14)
+            .frame(minWidth: 300)
         }
     }
 }

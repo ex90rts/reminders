@@ -30,12 +30,14 @@ enum TimedReminderFrequency: String, Codable, CaseIterable, Hashable {
     case hourlyInterval
     case daily
     case selectedWeekdays
+    case specificDate
 
     var title: String {
         switch self {
         case .hourlyInterval: "每隔几小时"
         case .daily: "每天"
         case .selectedWeekdays: "指定星期"
+        case .specificDate: "指定日期"
         }
     }
 }
@@ -73,6 +75,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
     var selectedWeekdays: Set<ReminderWeekday>
     var hour: Int
     var minute: Int
+    var specificDate: Date?
     var intervalHours: Int
     var soundName: String?
     var backgroundImageName: String?
@@ -85,6 +88,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         selectedWeekdays: Set<ReminderWeekday> = Set(ReminderWeekday.allCases),
         hour: Int,
         minute: Int,
+        specificDate: Date? = nil,
         intervalHours: Int = Self.defaultIntervalHours,
         soundName: String? = nil,
         backgroundImageName: String? = nil
@@ -96,6 +100,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         self.selectedWeekdays = selectedWeekdays
         self.hour = hour
         self.minute = minute
+        self.specificDate = specificDate
         self.intervalHours = intervalHours
         self.soundName = soundName
         self.backgroundImageName = backgroundImageName
@@ -109,6 +114,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         case selectedWeekdays
         case hour
         case minute
+        case specificDate
         case intervalHours
         case soundName
         case backgroundImageName
@@ -124,6 +130,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
             ?? Set(ReminderWeekday.allCases)
         hour = try container.decodeIfPresent(Int.self, forKey: .hour) ?? 9
         minute = try container.decodeIfPresent(Int.self, forKey: .minute) ?? 0
+        specificDate = try container.decodeIfPresent(Date.self, forKey: .specificDate)
         intervalHours = try container.decodeIfPresent(Int.self, forKey: .intervalHours)
             ?? Self.defaultIntervalHours
         soundName = try container.decodeIfPresent(String.self, forKey: .soundName)
