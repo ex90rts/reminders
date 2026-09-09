@@ -34,7 +34,18 @@ struct TimedReminderBackgroundImageStore {
         let id: String
         let url: URL
         let isUserImage: Bool
-        let displayName: String
+        let ordinal: Int
+
+        var displayName: String {
+            displayName(language: .simplifiedChinese)
+        }
+
+        func displayName(language: AppLanguage) -> String {
+            language.localized(
+                isUserImage ? "自定义图片 #%ld" : "系统内置 #%ld",
+                ordinal
+            )
+        }
     }
 
     enum StoreError: LocalizedError {
@@ -76,7 +87,7 @@ struct TimedReminderBackgroundImageStore {
                     id: TimedReminderBackgroundImageReference.builtInPrefix + url.lastPathComponent,
                     url: url,
                     isUserImage: false,
-                    displayName: "系统内置 #\(index + 1)"
+                    ordinal: index + 1
                 )
             }
         let uploads = try orderedUserImageURLs()
@@ -85,7 +96,7 @@ struct TimedReminderBackgroundImageStore {
                     id: url.lastPathComponent,
                     url: url,
                     isUserImage: true,
-                    displayName: "自定义图片 #\(index + 1)"
+                    ordinal: index + 1
                 )
             }
         return builtIns + uploads

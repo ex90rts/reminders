@@ -18,9 +18,13 @@ final class TimedReminderAlertController {
     private var currentSound: NSSound?
     private var latestScheduledEnqueueDates: [TimedReminderItem.ID: Date] = [:]
     private let backgroundImageProvider: (TimedReminderItem) -> NSImage?
+    private let displayLanguageProvider: () -> AppLanguage
     var onSnooze: (TimedReminderItem, TimedReminderSnoozeDuration) -> Void = { _, _ in }
 
-    init(backgroundImageProvider: @escaping (TimedReminderItem) -> NSImage? = { _ in nil }) {
+    init(
+        backgroundImageProvider: @escaping (TimedReminderItem) -> NSImage? = { _ in nil },
+        displayLanguageProvider: @escaping () -> AppLanguage = { .system }
+    ) {
         let panel = TimedReminderPanel(
             contentRect: CGRect(origin: .zero, size: TimedReminderPopupLayout.windowSize),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -31,6 +35,7 @@ final class TimedReminderAlertController {
         self.panel = panel
         self.model = model
         self.backgroundImageProvider = backgroundImageProvider
+        self.displayLanguageProvider = displayLanguageProvider
 
         model.dismiss = { [weak self] in
             self?.dismissCurrentReminder()
@@ -78,7 +83,10 @@ final class TimedReminderAlertController {
 
         let reminder = queuedReminders.removeFirst()
         currentReminder = reminder
-        model.text = reminder.text.isEmpty ? "未填写提醒" : reminder.text
+        model.displayLanguage = displayLanguageProvider()
+        model.text = reminder.text.isEmpty
+            ? model.displayLanguage.localized("未填写提醒")
+            : reminder.text
         model.secondsRemaining = TimedReminderPopupModel.dismissalSeconds
         model.snoozeDuration = .fiveMinutes
         model.backgroundImage = backgroundImageProvider(reminder)

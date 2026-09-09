@@ -3,14 +3,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
-    private static let contentBackgroundColor = Color(
-        .sRGB,
-        red: 245.0 / 255.0,
-        green: 245.0 / 255.0,
-        blue: 245.0 / 255.0,
-        opacity: 1
-    )
-
     private enum SettingsTab: String, CaseIterable, Identifiable {
         case residentReminders
         case timedReminders
@@ -19,12 +11,12 @@ struct SettingsView: View {
 
         var id: Self { self }
 
-        var title: String {
+        func title(language: AppLanguage) -> String {
             switch self {
-            case .residentReminders: "常驻提醒"
-            case .timedReminders: "定时提醒"
-            case .appearanceSettings: "外观设置"
-            case .about: "关于"
+            case .residentReminders: language.localized("常驻提醒标签页")
+            case .timedReminders: language.localized("定时提醒标签页")
+            case .appearanceSettings: language.localized("外观设置")
+            case .about: language.localized("关于")
             }
         }
 
@@ -50,6 +42,14 @@ struct SettingsView: View {
     @State private var backgroundImageDisplayNames: [String: String] = [:]
     private let backgroundImageStore = TimedReminderBackgroundImageStore.live
 
+    private var language: AppLanguage {
+        store.configuration.displayLanguage
+    }
+
+    private func localized(_ key: String, _ arguments: CVarArg...) -> String {
+        AppLocalization.localized(key, language: language, arguments: arguments)
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             settingsTabBar
@@ -65,15 +65,19 @@ struct SettingsView: View {
                     .padding(.top, 24)
                     .padding(.bottom, 30)
             }
-            .background(Self.contentBackgroundColor)
+            .background(SettingsAppearancePalette.contentBackground)
         }
         .frame(minWidth: 720, minHeight: 560)
         .tint(.orange)
-        .background(Color(nsColor: .windowBackgroundColor))
+        .background(SettingsAppearancePalette.windowBackground)
+        .appLanguage(language)
         .onDisappear {
             stopSoundPreview()
         }
         .onAppear(perform: reloadBackgroundImageDisplayNames)
+        .onChange(of: language) { _, _ in
+            reloadBackgroundImageDisplayNames()
+        }
     }
 
     private var settingsTabBar: some View {
@@ -89,7 +93,7 @@ struct SettingsView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(selectedTab == tab ? Color.orange : Color.secondary)
 
-                        Text(tab.title)
+                        Text(tab.title(language: language))
                             .font(.system(size: 13, weight: .semibold))
 
                         if let count = tabCount(for: tab) {
@@ -113,7 +117,7 @@ struct SettingsView: View {
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
                             .fill(
                                 selectedTab == tab
-                                    ? Color(nsColor: .windowBackgroundColor)
+                                    ? SettingsAppearancePalette.windowBackground
                                     : Color.clear
                             )
                     }
@@ -124,14 +128,14 @@ struct SettingsView: View {
                         }
                     }
                     .shadow(
-                        color: .black.opacity(selectedTab == tab ? 0.07 : 0),
+                        color: SettingsAppearancePalette.shadow.opacity(selectedTab == tab ? 0.07 : 0),
                         radius: 4,
                         y: 1
                     )
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(tab.title)
-                .accessibilityValue(selectedTab == tab ? "已选择" : "未选择")
+                .accessibilityLabel(tab.title(language: language))
+                .accessibilityValue(localized(selectedTab == tab ? "已选择" : "未选择"))
             }
         }
         .padding(4)
@@ -180,15 +184,15 @@ struct SettingsView: View {
     private var timedRemindersPage: some View {
         VStack(alignment: .leading, spacing: 16) {
             collectionPageHeader(
-                title: "定时提醒",
+                title: localized("定时提醒"),
                 count: store.configuration.timedReminders.count,
-                actionTitle: "添加定时提醒",
+                actionTitle: localized("添加定时提醒"),
                 action: { store.addTimedReminder() }
             )
 
             VStack(spacing: 10) {
                 if store.configuration.timedReminders.isEmpty {
-                    emptyState(title: "暂无定时提醒", systemImage: "clock.badge.questionmark")
+                    emptyState(title: localized("暂无定时提醒"), systemImage: "clock.badge.questionmark")
                 } else {
                     ForEach(store.configuration.timedReminders) { reminder in
                         timedReminderEditor(reminder)
@@ -201,10 +205,10 @@ struct SettingsView: View {
     private func timedReminderEditor(_ reminder: TimedReminderItem) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .center, spacing: 12) {
-                editorFieldLabel("内容")
+                editorFieldLabel(localized("内容"))
 
                 TextField(
-                    "提醒内容",
+                    localized("提醒内容"),
                     text: timedReminderBinding(for: reminder, keyPath: \.text),
                     axis: .vertical
                 )
@@ -212,14 +216,14 @@ struct SettingsView: View {
                 .lineLimit(1...3)
 
                 Toggle(
-                    "启用定时提醒",
+                    localized("启用定时提醒"),
                     isOn: timedReminderBinding(for: reminder, keyPath: \.isEnabled)
                 )
                 .labelsHidden()
                 .toggleStyle(.switch)
                 .controlSize(.small)
-                .help(reminder.isEnabled ? "停用此定时提醒" : "启用此定时提醒")
-                .accessibilityLabel(reminder.isEnabled ? "停用此定时提醒" : "启用此定时提醒")
+                .help(localized(reminder.isEnabled ? "停用此定时提醒" : "启用此定时提醒"))
+                .accessibilityLabel(localized(reminder.isEnabled ? "停用此定时提醒" : "启用此定时提醒"))
 
                 Button(role: .destructive) {
                     confirmTimedReminderDeletion(of: reminder)
@@ -227,25 +231,18 @@ struct SettingsView: View {
                     itemActionIcon("trash")
                 }
                 .buttonStyle(HoverActionButtonStyle(isDestructive: true))
-                .help("删除")
+                .help(localized("删除"))
             }
 
             HStack(alignment: .top, spacing: 12) {
-                editorFieldLabel("重复")
+                editorFieldLabel(localized("重复"))
                     .padding(.top, 4)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Picker(
-                        "重复",
-                        selection: timedReminderFrequencyBinding(for: reminder)
-                    ) {
-                        ForEach(TimedReminderFrequency.allCases, id: \.self) { frequency in
-                            Text(frequency.title).tag(frequency)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .fixedSize(horizontal: true, vertical: false)
+                    AdaptiveFrequencyPicker(
+                        selection: timedReminderFrequencyBinding(for: reminder),
+                        language: language
+                    )
 
                     recurrenceDetails(for: reminder)
                         .transition(.opacity.combined(with: .move(edge: .top)))
@@ -255,14 +252,14 @@ struct SettingsView: View {
             }
 
             HStack(alignment: .center, spacing: 12) {
-                editorFieldLabel("铃声")
+                editorFieldLabel(localized("铃声"))
 
                 HStack(spacing: 4) {
                     Picker(
-                        "铃声",
+                        localized("铃声"),
                         selection: timedReminderSoundBinding(for: reminder)
                     ) {
-                        Text("无铃声").tag(Optional<String>.none)
+                        Text(localized("无铃声")).tag(Optional<String>.none)
 
                         if let selectedSound = reminder.soundName,
                            !SystemSoundLibrary.availableNames.contains(selectedSound) {
@@ -283,7 +280,7 @@ struct SettingsView: View {
                     .labelsHidden()
                     .pickerStyle(.menu)
                     .fixedSize(horizontal: true, vertical: false)
-                    .accessibilityLabel("提醒铃声")
+                    .accessibilityLabel(localized("提醒铃声"))
 
                     let isPreviewing = previewingReminderID == reminder.id
                     Button {
@@ -293,8 +290,8 @@ struct SettingsView: View {
                     }
                     .buttonStyle(HoverActionButtonStyle())
                     .disabled(currentSoundName(for: reminder) == nil)
-                    .help(isPreviewing ? "停止播放" : "播放铃声")
-                    .accessibilityLabel(isPreviewing ? "停止播放铃声" : "播放铃声")
+                    .help(localized(isPreviewing ? "停止播放" : "播放铃声"))
+                    .accessibilityLabel(localized(isPreviewing ? "停止播放铃声" : "播放铃声"))
                 }
 
                 Spacer(minLength: 0)
@@ -305,7 +302,7 @@ struct SettingsView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(
-            Color(nsColor: .controlBackgroundColor).opacity(0.72),
+            SettingsAppearancePalette.controlSurface.opacity(0.72),
             in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
         .overlay {
@@ -320,7 +317,7 @@ struct SettingsView: View {
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: 12) {
-                editorFieldLabel("背景")
+                editorFieldLabel(localized("背景"))
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.16)) {
@@ -343,7 +340,7 @@ struct SettingsView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(isExpanded ? "折叠背景设置" : "展开背景设置")
+                .accessibilityLabel(localized(isExpanded ? "折叠背景设置" : "展开背景设置"))
 
                 Spacer(minLength: 0)
 
@@ -352,13 +349,13 @@ struct SettingsView: View {
                         .first(where: { $0.id == reminder.id }) ?? reminder
                     previewTimedReminder(currentReminder)
                 } label: {
-                    Label("预览", systemImage: "play.fill")
+                    Label(localized("预览"), systemImage: "play.fill")
                         .font(.caption.weight(.semibold))
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .help("预览这条提醒最终弹出的效果")
-                .accessibilityLabel("预览这条定时提醒")
+                .help(localized("预览这条提醒最终弹出的效果"))
+                .accessibilityLabel(localized("预览这条定时提醒"))
             }
 
             if isExpanded {
@@ -368,7 +365,7 @@ struct SettingsView: View {
                     libraryRevision: backgroundLibraryRevision,
                     onLibraryChange: backgroundLibraryDidChange
                 )
-                .padding(.leading, 50)
+                .padding(.leading, editorFieldLabelWidth + 12)
                 .padding(.top, 12)
                 .transition(.identity)
             }
@@ -377,8 +374,8 @@ struct SettingsView: View {
     }
 
     private func backgroundSelectionSummary(for reminder: TimedReminderItem) -> String {
-        guard let imageName = reminder.backgroundImageName else { return "无图片 · 渐变" }
-        return backgroundImageDisplayNames[imageName] ?? "已选择背景图"
+        guard let imageName = reminder.backgroundImageName else { return localized("无图片 · 渐变") }
+        return backgroundImageDisplayNames[imageName] ?? localized("已选择背景图")
     }
 
     private func backgroundLibraryDidChange() {
@@ -389,7 +386,7 @@ struct SettingsView: View {
     private func reloadBackgroundImageDisplayNames() {
         guard let entries = try? backgroundImageStore.entries() else { return }
         backgroundImageDisplayNames = Dictionary(
-            uniqueKeysWithValues: entries.map { ($0.id, $0.displayName) }
+            uniqueKeysWithValues: entries.map { ($0.id, $0.displayName(language: language)) }
         )
     }
 
@@ -398,29 +395,29 @@ struct SettingsView: View {
         switch reminder.frequency {
         case .hourlyInterval:
             recurrenceDetailSurface(systemImage: "clock.arrow.circlepath") {
-                recurrenceControlGroup("起始时间") {
-                    reminderTimePicker(for: reminder, accessibilityLabel: "开始时间")
+                recurrenceControlGroup(localized("起始时间")) {
+                    reminderTimePicker(for: reminder, accessibilityLabel: localized("开始时间"))
                 }
                 recurrenceDetailDivider
-                recurrenceControlGroup("提醒间隔") {
+                recurrenceControlGroup(localized("提醒间隔")) {
                     intervalControl(for: reminder)
                 }
             }
 
         case .daily:
             recurrenceDetailSurface(systemImage: "clock") {
-                recurrenceControlGroup("提醒时间") {
-                    reminderTimePicker(for: reminder, accessibilityLabel: "每天提醒时间")
+                recurrenceControlGroup(localized("提醒时间")) {
+                    reminderTimePicker(for: reminder, accessibilityLabel: localized("每天提醒时间"))
                 }
             }
 
         case .selectedWeekdays:
             recurrenceDetailSurface(systemImage: "calendar") {
-                recurrenceControlGroup("提醒时间") {
-                    reminderTimePicker(for: reminder, accessibilityLabel: "指定星期提醒时间")
+                recurrenceControlGroup(localized("提醒时间")) {
+                    reminderTimePicker(for: reminder, accessibilityLabel: localized("指定星期提醒时间"))
                 }
                 recurrenceDetailDivider
-                recurrenceControlGroup("提醒星期") {
+                recurrenceControlGroup(localized("提醒星期")) {
                     HStack(spacing: 5) {
                         ForEach(ReminderWeekday.allCases, id: \.self) { weekday in
                             weekdayButton(weekday, reminder: reminder)
@@ -431,12 +428,15 @@ struct SettingsView: View {
 
         case .monthly:
             recurrenceDetailSurface(systemImage: "calendar.circle") {
-                recurrenceControlGroup("提醒时间") {
-                    reminderTimePicker(for: reminder, accessibilityLabel: "每月提醒时间")
+                recurrenceControlGroup(localized("提醒时间")) {
+                    reminderTimePicker(for: reminder, accessibilityLabel: localized("每月提醒时间"))
                 }
                 recurrenceDetailDivider
-                recurrenceControlGroup("提醒日期") {
-                    MonthlyDayPickerButton(selectedDays: reminder.monthlyDays) { day in
+                recurrenceControlGroup(localized("提醒日期")) {
+                    MonthlyDayPickerButton(
+                        selectedDays: reminder.monthlyDays,
+                        language: language
+                    ) { day in
                         store.toggleTimedReminderMonthlyDay(id: reminder.id, day: day)
                     }
                 }
@@ -444,7 +444,7 @@ struct SettingsView: View {
 
         case .specificDate:
             recurrenceDetailSurface(systemImage: "calendar.badge.clock") {
-                recurrenceControlGroup("提醒时间") {
+                recurrenceControlGroup(localized("提醒时间")) {
                     specificDatePicker(for: reminder)
                 }
             }
@@ -501,7 +501,7 @@ struct SettingsView: View {
         HStack(spacing: 0) {
             intervalAdjustmentButton(
                 systemImage: "minus",
-                accessibilityLabel: "缩短提醒间隔",
+                accessibilityLabel: localized("缩短提醒间隔"),
                 isDisabled: reminder.intervalHours <= TimedReminderItem.intervalHoursRange.lowerBound
             ) {
                 updateInterval(for: reminder, by: -1)
@@ -510,7 +510,7 @@ struct SettingsView: View {
             Divider()
                 .frame(height: 18)
 
-            Text("\(reminder.intervalHours) 小时")
+            Text(localized("%ld 小时", reminder.intervalHours))
                 .font(.callout.weight(.medium))
                 .monospacedDigit()
                 .frame(minWidth: 58)
@@ -520,7 +520,7 @@ struct SettingsView: View {
 
             intervalAdjustmentButton(
                 systemImage: "plus",
-                accessibilityLabel: "延长提醒间隔",
+                accessibilityLabel: localized("延长提醒间隔"),
                 isDisabled: reminder.intervalHours >= TimedReminderItem.intervalHoursRange.upperBound
             ) {
                 updateInterval(for: reminder, by: 1)
@@ -569,14 +569,16 @@ struct SettingsView: View {
     ) -> some View {
         GraphicalTimePickerButton(
             selection: timedReminderTimeBinding(for: reminder),
-            accessibilityLabel: accessibilityLabel
+            accessibilityLabel: accessibilityLabel,
+            language: language
         )
     }
 
     private func specificDatePicker(for reminder: TimedReminderItem) -> some View {
         GraphicalDateTimePickerButton(
             selection: specificDateBinding(for: reminder),
-            accessibilityLabel: "指定日期提醒时间"
+            accessibilityLabel: localized("指定日期提醒时间"),
+            language: language
         )
     }
 
@@ -588,7 +590,7 @@ struct SettingsView: View {
         return Button {
             store.toggleTimedReminderWeekday(id: reminder.id, weekday: weekday)
         } label: {
-            Text(weekday.shortTitle)
+            Text(weekday.shortTitle(language: language))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(isSelected ? Color.white : Color.secondary)
                 .frame(width: 26, height: 24)
@@ -602,23 +604,23 @@ struct SettingsView: View {
                 }
         }
         .buttonStyle(.plain)
-        .help("周\(weekday.shortTitle)")
-        .accessibilityLabel("周\(weekday.shortTitle)")
-        .accessibilityValue(isSelected ? "已选择" : "未选择")
+        .help(weekday.fullTitle(language: language))
+        .accessibilityLabel(weekday.fullTitle(language: language))
+        .accessibilityValue(localized(isSelected ? "已选择" : "未选择"))
     }
 
     private var residentRemindersPage: some View {
         VStack(alignment: .leading, spacing: 16) {
             collectionPageHeader(
-                title: "常驻提醒",
+                title: localized("常驻提醒"),
                 count: store.configuration.items.count,
-                actionTitle: "添加常驻提醒",
+                actionTitle: localized("添加常驻提醒"),
                 action: store.addItem
             )
 
             VStack(spacing: 10) {
                 if store.configuration.items.isEmpty {
-                    emptyState(title: "暂无常驻提醒", systemImage: "note.text.badge.plus")
+                    emptyState(title: localized("暂无常驻提醒"), systemImage: "note.text.badge.plus")
                 } else {
                     ForEach(Array(store.configuration.items.enumerated()), id: \.element.id) { index, item in
                         itemEditor(item, index: index)
@@ -640,11 +642,11 @@ struct SettingsView: View {
                     in: Circle()
                 )
 
-            TextField("提醒内容", text: binding(for: item.id), axis: .vertical)
+            TextField(localized("提醒内容"), text: binding(for: item.id), axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(1...4)
                 .opacity(item.isVisible ? 1 : 0.55)
-                .accessibilityLabel("第 \(index + 1) 个常驻提醒")
+                .accessibilityLabel(localized("第 %ld 个常驻提醒", index + 1))
 
             HStack(spacing: 3) {
                 Button {
@@ -653,8 +655,13 @@ struct SettingsView: View {
                     itemActionIcon(item.isVisible ? "eye" : "eye.slash")
                 }
                 .buttonStyle(HoverActionButtonStyle())
-                .help(item.isVisible ? "隐藏此提醒" : "显示此提醒")
-                .accessibilityLabel(item.isVisible ? "隐藏第 \(index + 1) 个提醒" : "显示第 \(index + 1) 个提醒")
+                .help(localized(item.isVisible ? "隐藏此提醒" : "显示此提醒"))
+                .accessibilityLabel(
+                    localized(
+                        item.isVisible ? "隐藏第 %ld 个提醒" : "显示第 %ld 个提醒",
+                        index + 1
+                    )
+                )
 
                 Divider()
                     .frame(height: 18)
@@ -667,7 +674,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(HoverActionButtonStyle())
                 .disabled(index == 0)
-                .help("上移")
+                .help(localized("上移"))
 
                 Button {
                     store.moveItem(id: item.id, offset: 1)
@@ -676,7 +683,7 @@ struct SettingsView: View {
                 }
                 .buttonStyle(HoverActionButtonStyle())
                 .disabled(index == store.configuration.items.count - 1)
-                .help("下移")
+                .help(localized("下移"))
 
                 Button(role: .destructive) {
                     confirmDeletion(of: item)
@@ -684,14 +691,14 @@ struct SettingsView: View {
                     itemActionIcon("trash")
                 }
                 .buttonStyle(HoverActionButtonStyle(isDestructive: true))
-                .help("删除")
+                .help(localized("删除"))
             }
             .controlSize(.small)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(
-            Color(nsColor: .controlBackgroundColor).opacity(0.72),
+            SettingsAppearancePalette.controlSurface.opacity(0.72),
             in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
         .overlay {
@@ -702,20 +709,22 @@ struct SettingsView: View {
 
     private var appearanceSettingsPage: some View {
         VStack(alignment: .leading, spacing: 24) {
+            displayLanguageSection
+
             VStack(alignment: .leading, spacing: 16) {
-                pageHeader("常驻提醒外观")
+                pageHeader(localized("常驻提醒外观"))
 
                 settingsSurface {
-                    settingRow(systemImage: "paintpalette.fill", title: "贴纸配色") {
+                    settingRow(systemImage: "paintpalette.fill", title: localized("贴纸配色")) {
                         HStack(spacing: 22) {
-                            ColorPicker("背景颜色", selection: backgroundColorBinding, supportsOpacity: true)
-                            ColorPicker("文字颜色", selection: textColorBinding, supportsOpacity: true)
+                            ColorPicker(localized("背景颜色"), selection: backgroundColorBinding, supportsOpacity: true)
+                            ColorPicker(localized("文字颜色"), selection: textColorBinding, supportsOpacity: true)
                         }
                     }
 
                     settingsRowDivider
 
-                    settingRow(systemImage: "textformat.size", title: "文字大小") {
+                    settingRow(systemImage: "textformat.size", title: localized("文字大小")) {
                         Slider(
                             value: $store.configuration.reminderFontSize,
                             in: AppConfiguration.reminderFontSizeRange,
@@ -734,7 +743,7 @@ struct SettingsView: View {
 
                     settingsRowDivider
 
-                    settingRow(systemImage: "arrow.left.and.right", title: "贴纸宽度") {
+                    settingRow(systemImage: "arrow.left.and.right", title: localized("贴纸宽度")) {
                         Slider(
                             value: $store.configuration.reminderWidth,
                             in: AppConfiguration.reminderWidthRange,
@@ -754,10 +763,10 @@ struct SettingsView: View {
             }
 
             VStack(alignment: .leading, spacing: 16) {
-                pageHeader("常驻提醒位置")
+                pageHeader(localized("常驻提醒位置"))
 
                 settingsSurface {
-                    settingRow(systemImage: "pin.fill", title: "始终显示在所有普通窗口上方") {
+                    settingRow(systemImage: "pin.fill", title: localized("始终显示在所有普通窗口上方")) {
                         Toggle("", isOn: $store.configuration.isAlwaysOnTop)
                             .labelsHidden()
                             .toggleStyle(.switch)
@@ -765,7 +774,7 @@ struct SettingsView: View {
 
                     settingsRowDivider
 
-                    settingRow(systemImage: "eye.fill", title: "显示/隐藏常驻提醒") {
+                    settingRow(systemImage: "eye.fill", title: localized("显示/隐藏常驻提醒")) {
                         Toggle("", isOn: $store.configuration.isOverlayVisible)
                             .labelsHidden()
                             .toggleStyle(.switch)
@@ -773,14 +782,14 @@ struct SettingsView: View {
 
                     settingsRowDivider
 
-                    settingRow(systemImage: "location.fill", title: "常驻提醒显示位置") {
+                    settingRow(systemImage: "location.fill", title: localized("常驻提醒显示位置")) {
                         HStack(spacing: 4) {
                             Picker(
-                                "常驻提醒显示位置",
+                                localized("常驻提醒显示位置"),
                                 selection: residentReminderPositionBinding
                             ) {
                                 ForEach(ResidentReminderPosition.allCases) { position in
-                                    Text(position.title).tag(position)
+                                    Text(position.title(language: language)).tag(position)
                                 }
                             }
                             .labelsHidden()
@@ -796,11 +805,34 @@ struct SettingsView: View {
                                 itemActionIcon("arrow.counterclockwise")
                             }
                             .buttonStyle(HoverActionButtonStyle())
-                            .premiumTooltip("恢复默认位置")
-                            .accessibilityLabel("恢复默认位置")
+                            .premiumTooltip(localized("恢复默认位置"))
+                            .accessibilityLabel(localized("恢复默认位置"))
                             .zIndex(10)
                         }
                     }
+                }
+            }
+
+        }
+    }
+
+    private var displayLanguageSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            pageHeader(localized("基本设置"))
+
+            settingsSurface {
+                settingRow(systemImage: "globe", title: localized("应用界面语言")) {
+                    Picker(
+                        localized("应用界面语言"),
+                        selection: $store.configuration.displayLanguage
+                    ) {
+                        ForEach(AppLanguage.allCases) { option in
+                            Text(option.selectionTitle).tag(option)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .fixedSize(horizontal: true, vertical: false)
                 }
             }
         }
@@ -812,7 +844,7 @@ struct SettingsView: View {
                 .resizable()
                 .interpolation(.high)
                 .frame(width: 112, height: 112)
-                .accessibilityLabel("清醒贴应用图标")
+                .accessibilityLabel(localized("清醒贴应用图标"))
 
             VStack(spacing: 7) {
                 Text(appDisplayName)
@@ -824,7 +856,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Text("把重要的行为提示留在桌面上，并在恰当的时间主动提醒你。")
+            Text(localized("把重要的行为提示留在桌面上，并在恰当的时间主动提醒你。"))
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -833,24 +865,24 @@ struct SettingsView: View {
             settingsSurface {
                 aboutFeatureRow(
                     systemImage: "note.text",
-                    title: "常驻提醒",
-                    description: "将多条提示固定在桌面，随时保持可见。"
+                    title: localized("常驻提醒"),
+                    description: localized("将多条提示固定在桌面，随时保持可见。")
                 )
 
                 settingsRowDivider
 
                 aboutFeatureRow(
                     systemImage: "alarm.fill",
-                    title: "定时提醒",
-                    description: "按小时、每天、指定星期、每月或指定日期弹出提醒。"
+                    title: localized("定时提醒"),
+                    description: localized("按小时、每天、指定星期、每月或指定日期弹出提醒。")
                 )
 
                 settingsRowDivider
 
                 aboutFeatureRow(
                     systemImage: "paintpalette.fill",
-                    title: "个性化外观",
-                    description: "自定义贴纸样式，并为每条定时提醒选择背景。"
+                    title: localized("个性化外观"),
+                    description: localized("自定义贴纸样式，并为每条定时提醒选择背景。")
                 )
             }
             .frame(maxWidth: 600)
@@ -885,9 +917,7 @@ struct SettingsView: View {
     }
 
     private var appDisplayName: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String
-            ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName") as? String
-            ?? "清醒贴"
+        localized("清醒贴")
     }
 
     private var appVersionDescription: String {
@@ -896,13 +926,13 @@ struct SettingsView: View {
 
         return switch (version, build) {
         case let (version?, build?):
-            "版本 \(version)（构建 \(build)）"
+            localized("版本 %@（构建 %@）", version, build)
         case let (version?, nil):
-            "版本 \(version)"
+            localized("版本 %@", version)
         case let (nil, build?):
-            "构建 \(build)"
+            localized("构建 %@", build)
         case (nil, nil):
-            "版本信息不可用"
+            localized("版本信息不可用")
         }
     }
 
@@ -921,7 +951,7 @@ struct SettingsView: View {
         HStack(spacing: 12) {
             pageHeader(title)
 
-            Text("\(count) 项")
+            Text(localized("%ld 项", count))
                 .font(.caption.monospacedDigit().weight(.medium))
                 .foregroundStyle(Color.orange)
                 .padding(.horizontal, 8)
@@ -949,7 +979,7 @@ struct SettingsView: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 7)
         .background(
-            Color(nsColor: .controlBackgroundColor).opacity(0.66),
+            SettingsAppearancePalette.controlSurface.opacity(0.66),
             in: RoundedRectangle(cornerRadius: 15, style: .continuous)
         )
         .overlay {
@@ -994,7 +1024,12 @@ struct SettingsView: View {
         Text(title)
             .font(.callout)
             .foregroundStyle(.secondary)
-            .frame(width: 38, alignment: .trailing)
+            .lineLimit(1)
+            .frame(width: editorFieldLabelWidth, alignment: .trailing)
+    }
+
+    private var editorFieldLabelWidth: CGFloat {
+        language.resolved == .englishUS ? 84 : 38
     }
 
     private func emptyState(title: String, systemImage: String) -> some View {
@@ -1037,11 +1072,11 @@ struct SettingsView: View {
     private func confirmDeletion(of item: ReminderItem) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "删除常驻提醒？"
-        let displayText = item.text.isEmpty ? "未填写提醒" : item.text
-        alert.informativeText = "“\(displayText)”删除后无法恢复。"
-        alert.addButton(withTitle: "删除")
-        alert.addButton(withTitle: "取消")
+        alert.messageText = localized("删除常驻提醒？")
+        let displayText = item.text.isEmpty ? localized("未填写提醒") : item.text
+        alert.informativeText = localized("“%@”删除后无法恢复。", displayText)
+        alert.addButton(withTitle: localized("删除"))
+        alert.addButton(withTitle: localized("取消"))
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         store.removeItem(id: item.id)
@@ -1050,11 +1085,11 @@ struct SettingsView: View {
     private func confirmTimedReminderDeletion(of reminder: TimedReminderItem) {
         let alert = NSAlert()
         alert.alertStyle = .warning
-        alert.messageText = "删除定时提醒？"
-        let displayText = reminder.text.isEmpty ? "未填写提醒" : reminder.text
-        alert.informativeText = "“\(displayText)”删除后无法恢复。"
-        alert.addButton(withTitle: "删除")
-        alert.addButton(withTitle: "取消")
+        alert.messageText = localized("删除定时提醒？")
+        let displayText = reminder.text.isEmpty ? localized("未填写提醒") : reminder.text
+        alert.informativeText = localized("“%@”删除后无法恢复。", displayText)
+        alert.addButton(withTitle: localized("删除"))
+        alert.addButton(withTitle: localized("取消"))
 
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         store.removeTimedReminder(id: reminder.id)
@@ -1361,35 +1396,78 @@ private struct PremiumTooltipModifier: ViewModifier {
 private struct PremiumTooltipBubble: View {
     let text: String
 
-    private let backgroundColor = Color(
-        .sRGB,
-        red: 0.12,
-        green: 0.105,
-        blue: 0.09,
-        opacity: 0.96
-    )
-
     var body: some View {
         Text(text)
             .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(Color.white.opacity(0.96))
+            .foregroundStyle(.primary)
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
             .background(
-                backgroundColor,
+                .regularMaterial,
                 in: RoundedRectangle(cornerRadius: 8, style: .continuous)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .stroke(Color.orange.opacity(0.28), lineWidth: 0.75)
             }
-            .shadow(color: .black.opacity(0.20), radius: 8, y: 3)
+            .shadow(color: SettingsAppearancePalette.shadow.opacity(0.20), radius: 8, y: 3)
             .accessibilityHidden(true)
+    }
+}
+
+private struct AdaptiveFrequencyPicker: NSViewRepresentable {
+    @Binding var selection: TimedReminderFrequency
+    let language: AppLanguage
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selection: $selection)
+    }
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl()
+        control.trackingMode = .selectOne
+        control.segmentDistribution = .fit
+        control.target = context.coordinator
+        control.action = #selector(Coordinator.selectionDidChange(_:))
+        control.setContentHuggingPriority(.required, for: .horizontal)
+        return control
+    }
+
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        let frequencies = TimedReminderFrequency.allCases
+        context.coordinator.selection = $selection
+
+        if control.segmentCount != frequencies.count {
+            control.segmentCount = frequencies.count
+        }
+
+        for (index, frequency) in frequencies.enumerated() {
+            control.setLabel(frequency.title(language: language), forSegment: index)
+            control.setWidth(0, forSegment: index)
+        }
+
+        control.selectedSegment = frequencies.firstIndex(of: selection) ?? -1
+        control.setAccessibilityLabel(language.localized("重复"))
+    }
+
+    final class Coordinator: NSObject {
+        var selection: Binding<TimedReminderFrequency>
+
+        init(selection: Binding<TimedReminderFrequency>) {
+            self.selection = selection
+        }
+
+        @objc func selectionDidChange(_ sender: NSSegmentedControl) {
+            let frequencies = TimedReminderFrequency.allCases
+            guard frequencies.indices.contains(sender.selectedSegment) else { return }
+            selection.wrappedValue = frequencies[sender.selectedSegment]
+        }
     }
 }
 
 private struct MonthlyDayPickerButton: View {
     let selectedDays: Set<MonthlyReminderDay>
+    let language: AppLanguage
     let toggleDay: (MonthlyReminderDay) -> Void
 
     @State private var isPickerPresented = false
@@ -1420,15 +1498,15 @@ private struct MonthlyDayPickerButton: View {
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
-        .accessibilityLabel("每月提醒日期")
+        .accessibilityLabel(language.localized("每月提醒日期"))
         .accessibilityValue(accessibilitySelectionSummary)
         .popover(isPresented: $isPickerPresented, arrowEdge: .bottom) {
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("选择每月提醒日期")
+                    Text(language.localized("选择每月提醒日期"))
                         .font(.headline)
 
-                    Text("可多选，当月没有该日期则自动跳过")
+                    Text(language.localized("可多选，当月没有该日期则自动跳过"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -1450,13 +1528,13 @@ private struct MonthlyDayPickerButton: View {
                 Divider()
 
                 HStack {
-                    Text("已选择 \(selectedDays.count) 项")
+                    Text(language.localized("已选择 %ld 项", selectedDays.count))
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     Spacer()
 
-                    Button("完成") {
+                    Button(language.localized("完成")) {
                         isPickerPresented = false
                     }
                     .buttonStyle(.borderedProminent)
@@ -1466,6 +1544,7 @@ private struct MonthlyDayPickerButton: View {
             }
             .padding(14)
             .frame(width: 274)
+            .appLanguage(language)
         }
     }
 
@@ -1477,20 +1556,25 @@ private struct MonthlyDayPickerButton: View {
             .sorted()
 
         if !numberedDays.isEmpty {
-            components.append("\(numberedDays.map(String.init).joined(separator: ",")) 号")
+            let joinedDays = numberedDays.map(String.init).joined(separator: ",")
+            components.append(
+                language.resolved == .englishUS
+                    ? joinedDays
+                    : "\(joinedDays) \(language.localized("号"))"
+            )
         }
         if selectedDays.contains(.lastDay) {
-            components.append(MonthlyReminderDay.lastDay.title)
+            components.append(MonthlyReminderDay.lastDay.title(language: language))
         }
 
-        return components.isEmpty ? "选择日期" : components.joined(separator: ",")
+        return components.isEmpty ? language.localized("选择日期") : components.joined(separator: ",")
     }
 
     private var accessibilitySelectionSummary: String {
         selectedDays
             .sorted { $0.rawValue < $1.rawValue }
-            .map(\.title)
-            .joined(separator: "、")
+            .map { $0.title(language: language) }
+            .joined(separator: language.resolved == .englishUS ? ", " : "、")
     }
 
     private func dayButton(
@@ -1517,14 +1601,14 @@ private struct MonthlyDayPickerButton: View {
                 }
         }
         .buttonStyle(.plain)
-        .help(day.title)
-        .accessibilityLabel(day.title)
-        .accessibilityValue(isSelected ? "已选择" : "未选择")
+        .help(day.title(language: language))
+        .accessibilityLabel(day.title(language: language))
+        .accessibilityValue(language.localized(isSelected ? "已选择" : "未选择"))
     }
 
     private func pickerTitle(for day: MonthlyReminderDay) -> String {
         guard MonthlyReminderDay.numberedDayRange.contains(day.rawValue) else {
-            return day.title
+            return day.title(language: language)
         }
         return String(day.rawValue)
     }
@@ -1533,6 +1617,7 @@ private struct MonthlyDayPickerButton: View {
 private struct GraphicalTimePickerButton: View {
     @Binding var selection: Date
     let accessibilityLabel: String
+    let language: AppLanguage
 
     @State private var isPickerPresented = false
 
@@ -1541,7 +1626,7 @@ private struct GraphicalTimePickerButton: View {
             isPickerPresented = true
         } label: {
             HStack(spacing: 6) {
-                Text(selection.formatted(date: .omitted, time: .shortened))
+                Text(shortTime)
                     .monospacedDigit()
 
                 Image(systemName: "chevron.up.chevron.down")
@@ -1553,7 +1638,7 @@ private struct GraphicalTimePickerButton: View {
         .buttonStyle(.bordered)
         .controlSize(.small)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(selection.formatted(date: .omitted, time: .shortened))
+        .accessibilityValue(shortTime)
         .popover(isPresented: $isPickerPresented, arrowEdge: .bottom) {
             VStack(spacing: 12) {
                 DatePicker(
@@ -1567,13 +1652,13 @@ private struct GraphicalTimePickerButton: View {
                 Divider()
 
                 HStack {
-                    Text("选择提醒时间")
+                    Text(language.localized("选择提醒时间"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     Spacer()
 
-                    Button("完成") {
+                    Button(language.localized("完成")) {
                         isPickerPresented = false
                     }
                     .buttonStyle(.borderedProminent)
@@ -1583,13 +1668,22 @@ private struct GraphicalTimePickerButton: View {
             }
             .padding(14)
             .frame(minWidth: 250)
+            .appLanguage(language)
         }
+    }
+
+    private var shortTime: String {
+        selection.formatted(
+            Date.FormatStyle(date: .omitted, time: .shortened)
+                .locale(language.locale)
+        )
     }
 }
 
 private struct GraphicalDateTimePickerButton: View {
     @Binding var selection: Date
     let accessibilityLabel: String
+    let language: AppLanguage
 
     @State private var isPickerPresented = false
 
@@ -1598,7 +1692,7 @@ private struct GraphicalDateTimePickerButton: View {
             isPickerPresented = true
         } label: {
             HStack(spacing: 6) {
-                Text(selection.formatted(date: .abbreviated, time: .shortened))
+                Text(shortDateTime)
                     .monospacedDigit()
 
                 Image(systemName: "chevron.up.chevron.down")
@@ -1609,7 +1703,7 @@ private struct GraphicalDateTimePickerButton: View {
         .buttonStyle(.bordered)
         .controlSize(.small)
         .accessibilityLabel(accessibilityLabel)
-        .accessibilityValue(selection.formatted(date: .long, time: .shortened))
+        .accessibilityValue(longDateTime)
         .popover(isPresented: $isPickerPresented, arrowEdge: .bottom) {
             VStack(spacing: 12) {
                 DatePicker(
@@ -1623,13 +1717,13 @@ private struct GraphicalDateTimePickerButton: View {
                 Divider()
 
                 HStack {
-                    Text("选择提醒日期和时间")
+                    Text(language.localized("选择提醒日期和时间"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     Spacer()
 
-                    Button("完成") {
+                    Button(language.localized("完成")) {
                         isPickerPresented = false
                     }
                     .buttonStyle(.borderedProminent)
@@ -1639,6 +1733,21 @@ private struct GraphicalDateTimePickerButton: View {
             }
             .padding(14)
             .frame(minWidth: 300)
+            .appLanguage(language)
         }
+    }
+
+    private var shortDateTime: String {
+        selection.formatted(
+            Date.FormatStyle(date: .abbreviated, time: .shortened)
+                .locale(language.locale)
+        )
+    }
+
+    private var longDateTime: String {
+        selection.formatted(
+            Date.FormatStyle(date: .long, time: .shortened)
+                .locale(language.locale)
+        )
     }
 }

@@ -1,8 +1,11 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    private var languageSubscription: AnyCancellable?
+
     init(
         store: ConfigurationStore,
         resetPosition: @escaping () -> Void,
@@ -19,7 +22,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "清醒贴设置"
+        window.title = store.configuration.displayLanguage.localized("清醒贴设置")
         window.contentViewController = NSHostingController(rootView: content)
         window.minSize = CGSize(width: 720, height: 560)
         window.isReleasedWhenClosed = false
@@ -28,6 +31,12 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
         super.init(window: window)
         window.delegate = self
+        languageSubscription = store.$configuration
+            .map(\.displayLanguage)
+            .removeDuplicates()
+            .sink { [weak window] language in
+                window?.title = language.localized("清醒贴设置")
+            }
     }
 
     required init?(coder: NSCoder) {

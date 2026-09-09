@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>zh_CN</string>
+	<string>zh-Hans</string>
 	<key>CFBundleDisplayName</key>
 	<string>清醒贴</string>
 	<key>CFBundleExecutable</key>
@@ -14,14 +14,20 @@
 	<string>com.webber.reminders</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>zh-Hans</string>
+		<string>zh-Hant</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>清醒贴</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.9</string>
+	<string>1.0.15</string>
 	<key>CFBundleVersion</key>
-	<string>20260909093948</string>
+	<string>20260909201744</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>15.0</string>
 	<key>LSMultipleInstancesProhibited</key>

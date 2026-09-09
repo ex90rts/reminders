@@ -22,7 +22,8 @@ struct ReminderBoardView: View {
         .scrollIndicators(.hidden)
         .background(Color.clear)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel("清醒贴提醒")
+        .accessibilityLabel(configuration.displayLanguage.localized("清醒贴提醒"))
+        .appLanguage(configuration.displayLanguage)
     }
 
     private func reminderCard(_ item: ReminderItem, number: Int) -> some View {
@@ -34,7 +35,11 @@ struct ReminderBoardView: View {
                 .background(configuration.textColor.color.opacity(0.88), in: Circle())
                 .accessibilityHidden(true)
 
-            Text(item.text.isEmpty ? "未填写提醒" : item.text)
+            Text(
+                item.text.isEmpty
+                    ? configuration.displayLanguage.localized("未填写提醒")
+                    : item.text
+            )
                 .font(.system(size: configuration.reminderFontSize, weight: .semibold, design: .rounded))
                 .foregroundStyle(configuration.textColor.color)
                 .multilineTextAlignment(.leading)
@@ -50,6 +55,8 @@ struct ReminderBoardView: View {
                 .shadow(color: .black.opacity(0.10), radius: 5, y: 3)
         )
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("提醒 \(number)：\(item.text)")
+        .accessibilityLabel(
+            configuration.displayLanguage.localized("提醒 %ld：%@", number, item.text)
+        )
     }
 }

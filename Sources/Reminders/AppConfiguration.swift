@@ -33,7 +33,11 @@ enum TimedReminderFrequency: String, Codable, CaseIterable, Hashable {
     case selectedWeekdays
     case specificDate
 
-    var title: String {
+    func title(language: AppLanguage) -> String {
+        language.localized(titleKey)
+    }
+
+    private var titleKey: String {
         switch self {
         case .hourlyInterval: "每隔几小时"
         case .daily: "每天"
@@ -52,6 +56,32 @@ enum ReminderWeekday: Int, Codable, CaseIterable, Hashable {
     case friday = 6
     case saturday = 7
     case sunday = 1
+
+    func shortTitle(language: AppLanguage) -> String {
+        let titles: [ReminderWeekday: [AppLanguage: String]] = [
+            .monday: [.simplifiedChinese: "一", .traditionalChinese: "一", .englishUS: "M"],
+            .tuesday: [.simplifiedChinese: "二", .traditionalChinese: "二", .englishUS: "T"],
+            .wednesday: [.simplifiedChinese: "三", .traditionalChinese: "三", .englishUS: "W"],
+            .thursday: [.simplifiedChinese: "四", .traditionalChinese: "四", .englishUS: "T"],
+            .friday: [.simplifiedChinese: "五", .traditionalChinese: "五", .englishUS: "F"],
+            .saturday: [.simplifiedChinese: "六", .traditionalChinese: "六", .englishUS: "S"],
+            .sunday: [.simplifiedChinese: "日", .traditionalChinese: "日", .englishUS: "S"],
+        ]
+        return titles[self]?[language.resolved] ?? "?"
+    }
+
+    func fullTitle(language: AppLanguage) -> String {
+        let titles: [ReminderWeekday: [AppLanguage: String]] = [
+            .monday: [.simplifiedChinese: "周一", .traditionalChinese: "週一", .englishUS: "Monday"],
+            .tuesday: [.simplifiedChinese: "周二", .traditionalChinese: "週二", .englishUS: "Tuesday"],
+            .wednesday: [.simplifiedChinese: "周三", .traditionalChinese: "週三", .englishUS: "Wednesday"],
+            .thursday: [.simplifiedChinese: "周四", .traditionalChinese: "週四", .englishUS: "Thursday"],
+            .friday: [.simplifiedChinese: "周五", .traditionalChinese: "週五", .englishUS: "Friday"],
+            .saturday: [.simplifiedChinese: "周六", .traditionalChinese: "週六", .englishUS: "Saturday"],
+            .sunday: [.simplifiedChinese: "周日", .traditionalChinese: "週日", .englishUS: "Sunday"],
+        ]
+        return titles[self]?[language.resolved] ?? "?"
+    }
 
     var shortTitle: String {
         switch self {
@@ -77,13 +107,16 @@ struct MonthlyReminderDay: Codable, Equatable, Hashable, Identifiable {
 
     var id: Int { rawValue }
 
-    var title: String {
+    func title(language: AppLanguage) -> String {
         switch self {
-        case Self.firstDay: "第一天"
-        case Self.lastDay: "最后一天"
-        default: "\(rawValue) 号"
+        case Self.firstDay: language.localized("第一天")
+        case Self.lastDay: language.localized("最后一天")
+        default:
+            language.resolved == .englishUS ? String(rawValue) : "\(rawValue) \(language.localized("号"))"
         }
     }
+
+    var title: String { title(language: .simplifiedChinese) }
 
     static func day(_ day: Int) -> MonthlyReminderDay {
         MonthlyReminderDay(rawValue: day)
@@ -272,7 +305,11 @@ enum ResidentReminderPosition: String, Codable, CaseIterable, Hashable, Identifi
 
     var id: Self { self }
 
-    var title: String {
+    func title(language: AppLanguage) -> String {
+        language.localized(titleKey)
+    }
+
+    private var titleKey: String {
         switch self {
         case .topRight: "右上角"
         case .centerRight: "右侧中间"
@@ -326,27 +363,32 @@ struct AppConfiguration: Codable, Equatable {
     var isOverlayVisible: Bool
     var residentReminderPosition: ResidentReminderPosition
     var savedWindowOrigin: SavedWindowOrigin?
+    var displayLanguage: AppLanguage
 
     var visibleItems: [ReminderItem] {
         items.filter(\.isVisible)
     }
 
-    static let initial = AppConfiguration(
-        items: [
-            ReminderItem(text: "先停一下：现在最重要的事情是什么？"),
-            ReminderItem(text: "一次只做一件事，完成后再切换。"),
-            ReminderItem(text: "坐直、放松肩膀，喝一口水。")
-        ],
-        timedReminders: [],
-        backgroundColor: CodableColor(red: 0.98, green: 0.82, blue: 0.32),
-        textColor: CodableColor(red: 0.16, green: 0.12, blue: 0.06),
-        reminderFontSize: defaultReminderFontSize,
-        reminderWidth: defaultReminderWidth,
-        isAlwaysOnTop: true,
-        isOverlayVisible: true,
-        residentReminderPosition: .topRight,
-        savedWindowOrigin: nil
-    )
+    static var initial: AppConfiguration {
+        let language = AppLanguage.system
+        return AppConfiguration(
+            items: [
+                ReminderItem(text: language.localized("先停一下：现在最重要的事情是什么？")),
+                ReminderItem(text: language.localized("一次只做一件事，完成后再切换。")),
+                ReminderItem(text: language.localized("坐直、放松肩膀，喝一口水。"))
+            ],
+            timedReminders: [],
+            backgroundColor: CodableColor(red: 0.98, green: 0.82, blue: 0.32),
+            textColor: CodableColor(red: 0.16, green: 0.12, blue: 0.06),
+            reminderFontSize: defaultReminderFontSize,
+            reminderWidth: defaultReminderWidth,
+            isAlwaysOnTop: true,
+            isOverlayVisible: true,
+            residentReminderPosition: .topRight,
+            savedWindowOrigin: nil,
+            displayLanguage: .system
+        )
+    }
 
     func sanitized() -> AppConfiguration {
         var copy = self
@@ -369,6 +411,7 @@ struct AppConfiguration: Codable, Equatable {
         case isOverlayVisible
         case residentReminderPosition
         case savedWindowOrigin
+        case displayLanguage
     }
 
     private enum LegacyCodingKeys: String, CodingKey {
@@ -385,7 +428,8 @@ struct AppConfiguration: Codable, Equatable {
         isAlwaysOnTop: Bool,
         isOverlayVisible: Bool,
         residentReminderPosition: ResidentReminderPosition,
-        savedWindowOrigin: SavedWindowOrigin?
+        savedWindowOrigin: SavedWindowOrigin?,
+        displayLanguage: AppLanguage = .system
     ) {
         self.items = items
         self.timedReminders = timedReminders
@@ -397,6 +441,7 @@ struct AppConfiguration: Codable, Equatable {
         self.isOverlayVisible = isOverlayVisible
         self.residentReminderPosition = residentReminderPosition
         self.savedWindowOrigin = savedWindowOrigin
+        self.displayLanguage = displayLanguage
     }
 
     init(from decoder: Decoder) throws {
@@ -431,6 +476,7 @@ struct AppConfiguration: Codable, Equatable {
             forKey: .residentReminderPosition
         ) ?? .topRight
         savedWindowOrigin = try container.decodeIfPresent(SavedWindowOrigin.self, forKey: .savedWindowOrigin)
+        displayLanguage = try container.decodeIfPresent(AppLanguage.self, forKey: .displayLanguage) ?? .system
     }
 }
 

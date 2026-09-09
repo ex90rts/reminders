@@ -31,7 +31,44 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertTrue(store.configuration.isAlwaysOnTop)
         XCTAssertTrue(store.configuration.isOverlayVisible)
         XCTAssertEqual(store.configuration.residentReminderPosition, .topRight)
+        XCTAssertEqual(store.configuration.displayLanguage, .system)
         XCTAssertEqual(TimedReminderPopupModel.dismissalSeconds, 30)
+    }
+
+    func testSupportedSystemLanguagesResolveToExpectedDisplayLanguage() {
+        XCTAssertEqual(
+            AppLanguage.resolve(preferredLanguages: ["zh-Hans-CN"]),
+            .simplifiedChinese
+        )
+        XCTAssertEqual(
+            AppLanguage.resolve(preferredLanguages: ["zh-Hant-TW"]),
+            .traditionalChinese
+        )
+        XCTAssertEqual(
+            AppLanguage.resolve(preferredLanguages: ["zh-HK"]),
+            .traditionalChinese
+        )
+        XCTAssertEqual(
+            AppLanguage.resolve(preferredLanguages: ["en-US"]),
+            .englishUS
+        )
+        XCTAssertEqual(
+            AppLanguage.resolve(preferredLanguages: ["fr-FR"]),
+            .englishUS
+        )
+        XCTAssertEqual(
+            AppLanguage.resolve(preferredLanguages: []),
+            .englishUS
+        )
+    }
+
+    func testUnknownPersistedDisplayLanguageFallsBackToSystem() throws {
+        let language = try JSONDecoder().decode(
+            AppLanguage.self,
+            from: Data("\"future-language\"".utf8)
+        )
+
+        XCTAssertEqual(language, .system)
     }
 
     func testTimedReminderPopupShadowHasEnoughFadeOutSpace() {
@@ -80,6 +117,7 @@ final class ConfigurationStoreTests: XCTestCase {
             )
         ]
         firstStore?.configuration.isAlwaysOnTop = false
+        firstStore?.configuration.displayLanguage = .traditionalChinese
         firstStore = nil
 
         let restoredStore = ConfigurationStore(defaults: defaults, storageKey: "test")
@@ -89,6 +127,7 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertEqual(restoredStore.configuration.reminderWidth, 480)
         XCTAssertEqual(restoredStore.configuration.timedReminders.first?.backgroundImageName, "background.png")
         XCTAssertFalse(restoredStore.configuration.isAlwaysOnTop)
+        XCTAssertEqual(restoredStore.configuration.displayLanguage, .traditionalChinese)
     }
 
     func testLegacyConfigurationUsesNewFieldDefaults() throws {
@@ -101,6 +140,7 @@ final class ConfigurationStoreTests: XCTestCase {
         legacyJSON.removeValue(forKey: "timedReminderBackgroundImageName")
         legacyJSON.removeValue(forKey: "timedReminders")
         legacyJSON.removeValue(forKey: "residentReminderPosition")
+        legacyJSON.removeValue(forKey: "displayLanguage")
         var legacyItems = try XCTUnwrap(legacyJSON["items"] as? [[String: Any]])
         for index in legacyItems.indices {
             legacyItems[index].removeValue(forKey: "isVisible")
@@ -114,6 +154,7 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertEqual(store.configuration.reminderWidth, AppConfiguration.defaultReminderWidth)
         XCTAssertTrue(store.configuration.timedReminders.allSatisfy { $0.backgroundImageName == nil })
         XCTAssertEqual(store.configuration.residentReminderPosition, .topRight)
+        XCTAssertEqual(store.configuration.displayLanguage, .system)
         XCTAssertTrue(store.configuration.items.allSatisfy(\.isVisible))
         XCTAssertTrue(store.configuration.timedReminders.isEmpty)
     }

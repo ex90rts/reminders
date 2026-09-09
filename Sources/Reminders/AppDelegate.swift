@@ -24,8 +24,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var timedReminderAlertController: TimedReminderAlertController?
     private var timedReminderScheduler: TimedReminderScheduler?
     private var statusItem: NSStatusItem?
+    private var settingsMenuItem: NSMenuItem?
     private var visibilityMenuItem: NSMenuItem?
-    private var subscription: AnyCancellable?
+    private var resetPositionMenuItem: NSMenuItem?
+    private var quitMenuItem: NSMenuItem?
+    private var subscriptions: Set<AnyCancellable> = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -42,11 +45,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.settingsController = settingsController
 
         let backgroundImageStore = TimedReminderBackgroundImageStore.live
-        let timedReminderAlertController = TimedReminderAlertController { reminder in
-            backgroundImageStore.image(
-                named: reminder.backgroundImageName
-            )
-        }
+        let timedReminderAlertController = TimedReminderAlertController(
+            backgroundImageProvider: { reminder in
+                backgroundImageStore.image(named: reminder.backgroundImageName)
+            },
+            displayLanguageProvider: { [weak store] in
+                store?.configuration.displayLanguage ?? .system
+            }
+        )
         let timedReminderScheduler = TimedReminderScheduler(store: store) { [weak timedReminderAlertController] reminders in
             timedReminderAlertController?.enqueueScheduled(reminders)
         }
@@ -85,21 +91,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func configureStatusMenu() {
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = statusBarImage()
-        statusItem.button?.toolTip = "清醒贴"
+        statusItem.button?.toolTip = localized("清醒贴")
 
         let menu = NSMenu()
-        let settingsItem = menuItem("打开设置…", action: #selector(openSettings))
+        let settingsItem = menuItem(localized("打开设置…"), action: #selector(openSettings))
         MenuItemImageVisibilityCompatibility.hideImage(for: settingsItem)
         menu.addItem(settingsItem)
+        settingsMenuItem = settingsItem
 
-        let visibilityItem = menuItem("显示常驻提醒", action: #selector(toggleOverlay))
+        let visibilityItem = menuItem(localized("显示常驻提醒"), action: #selector(toggleOverlay))
         visibilityItem.state = store.configuration.isOverlayVisible ? .on : .off
         menu.addItem(visibilityItem)
         visibilityMenuItem = visibilityItem
 
-        menu.addItem(menuItem("恢复常驻提醒位置", action: #selector(resetPosition)))
+        let resetPositionItem = menuItem(localized("恢复常驻提醒位置"), action: #selector(resetPosition))
+        menu.addItem(resetPositionItem)
+        resetPositionMenuItem = resetPositionItem
         menu.addItem(.separator())
-        menu.addItem(menuItem("退出清醒贴", action: #selector(quit), key: "q"))
+        let quitItem = menuItem(localized("退出清醒贴"), action: #selector(quit), key: "q")
+        menu.addItem(quitItem)
+        quitMenuItem = quitItem
 
         statusItem.menu = menu
         self.statusItem = statusItem
@@ -112,20 +123,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         {
             image.size = NSSize(width: 18, height: 18)
             image.isTemplate = true
-            image.accessibilityDescription = "清醒贴"
+            image.accessibilityDescription = localized("清醒贴")
             return image
         }
 
-        return NSImage(systemSymbolName: "note.text", accessibilityDescription: "清醒贴")
+        return NSImage(
+            systemSymbolName: "note.text",
+            accessibilityDescription: localized("清醒贴")
+        )
     }
 
     private func observeConfiguration() {
-        subscription = store.$configuration
+        store.$configuration
             .map(\.isOverlayVisible)
             .removeDuplicates()
             .sink { [weak self] isVisible in
                 self?.visibilityMenuItem?.state = isVisible ? .on : .off
             }
+            .store(in: &subscriptions)
+
+        store.$configuration
+            .map(\.displayLanguage)
+            .removeDuplicates()
+            .sink { [weak self] language in
+                self?.updateLocalizedMenuContent(language: language)
+            }
+            .store(in: &subscriptions)
+    }
+
+    private func updateLocalizedMenuContent(language: AppLanguage) {
+        let appName = language.localized("清醒贴")
+        statusItem?.button?.toolTip = appName
+        statusItem?.button?.image?.accessibilityDescription = appName
+        settingsMenuItem?.title = language.localized("打开设置…")
+        visibilityMenuItem?.title = language.localized("显示常驻提醒")
+        resetPositionMenuItem?.title = language.localized("恢复常驻提醒位置")
+        quitMenuItem?.title = language.localized("退出清醒贴")
+    }
+
+    private func localized(_ key: String, _ arguments: CVarArg...) -> String {
+        AppLocalization.localized(
+            key,
+            language: store.configuration.displayLanguage,
+            arguments: arguments
+        )
     }
 
     private func menuItem(_ title: String, action: Selector, key: String = "") -> NSMenuItem {

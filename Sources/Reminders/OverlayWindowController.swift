@@ -88,7 +88,9 @@ final class OverlayWindowController: NSObject, NSWindowDelegate {
         let font = NSFont.systemFont(ofSize: configuration.reminderFontSize, weight: .semibold)
         let visibleItems = configuration.visibleItems
         let naturalCardsHeight = visibleItems.reduce(CGFloat.zero) { height, item in
-            let displayText = item.text.isEmpty ? "未填写提醒" : item.text
+            let displayText = item.text.isEmpty
+                ? configuration.displayLanguage.localized("未填写提醒")
+                : item.text
             let textHeight = (displayText as NSString).boundingRect(
                 with: CGSize(width: layout.availableTextWidth, height: .greatestFiniteMagnitude),
                 options: [.usesLineFragmentOrigin, .usesFontLeading],

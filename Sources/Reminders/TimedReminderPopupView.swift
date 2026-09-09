@@ -32,6 +32,7 @@ final class TimedReminderPopupModel: ObservableObject {
     @Published var isPresented = false
     @Published var snoozeDuration = TimedReminderSnoozeDuration.fiveMinutes
     @Published var backgroundImage: NSImage?
+    @Published var displayLanguage = AppLanguage.system
     var dismiss: () -> Void = {}
     var snooze: (TimedReminderSnoozeDuration) -> Void = { _ in }
 
@@ -43,6 +44,10 @@ final class TimedReminderPopupModel: ObservableObject {
 struct TimedReminderPopupView: View {
     @ObservedObject var model: TimedReminderPopupModel
 
+    private func localized(_ key: String, _ arguments: CVarArg...) -> String {
+        AppLocalization.localized(key, language: model.displayLanguage, arguments: arguments)
+    }
+
     var body: some View {
         ZStack {
             ZStack(alignment: .topTrailing) {
@@ -53,11 +58,11 @@ struct TimedReminderPopupView: View {
                         AnimatedReminderBell(isAnimating: model.isPresented, usesImageBackground: usesImageBackground)
 
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("清醒贴")
+                            Text(localized("清醒贴"))
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(usesImageBackground ? .white : TimedReminderPopupPalette.accent)
 
-                            Text("定时提醒")
+                            Text(localized("定时提醒"))
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundStyle(usesImageBackground ? .white : TimedReminderPopupPalette.secondaryInk)
                         }
@@ -77,7 +82,7 @@ struct TimedReminderPopupView: View {
                                 .foregroundStyle(TimedReminderPopupPalette.accent)
                                 .contentTransition(.numericText())
 
-                            Text("秒后自动关闭")
+                            Text(localized("秒后自动关闭"))
                                 .font(.system(size: 11))
                                 .foregroundStyle(TimedReminderPopupPalette.secondaryInk)
                                 .fixedSize()
@@ -120,8 +125,8 @@ struct TimedReminderPopupView: View {
                 .foregroundStyle(usesImageBackground ? .white : TimedReminderPopupPalette.secondaryInk)
                 .shadow(color: .black.opacity(usesImageBackground ? 0.35 : 0), radius: 3, y: 1)
                 .padding(16)
-                .help("关闭")
-                .accessibilityLabel("关闭定时提醒")
+                .help(localized("关闭"))
+                .accessibilityLabel(localized("关闭定时提醒"))
             }
             .frame(
                 width: TimedReminderPopupLayout.cardSize.width,
@@ -150,6 +155,7 @@ struct TimedReminderPopupView: View {
             width: TimedReminderPopupLayout.windowSize.width,
             height: TimedReminderPopupLayout.windowSize.height
         )
+        .appLanguage(model.displayLanguage)
     }
 
     private var popupBackground: some View {
@@ -228,7 +234,7 @@ struct TimedReminderPopupView: View {
 
     private var snoozeControl: some View {
         HStack(spacing: 5) {
-            Picker("稍后提醒时长", selection: $model.snoozeDuration) {
+            Picker(localized("稍后提醒时长"), selection: $model.snoozeDuration) {
                 ForEach(TimedReminderSnoozeDuration.allCases) { duration in
                     Text(duration.title).tag(duration)
                 }
@@ -239,18 +245,18 @@ struct TimedReminderPopupView: View {
             .frame(width: 100)
             .tint(TimedReminderPopupPalette.accent)
 
-            Text("分钟后")
+            Text(localized("分钟后"))
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(TimedReminderPopupPalette.secondaryInk)
                 .fixedSize()
 
             Button(action: model.confirmSnooze) {
-                Text("再提醒")
+                Text(localized("再提醒"))
                     .fixedSize(horizontal: true, vertical: false)
             }
                 .buttonStyle(SnoozeConfirmationButtonStyle())
-                .accessibilityLabel("确认稍后提醒")
-                .accessibilityValue("\(model.snoozeDuration.rawValue) 分钟后")
+                .accessibilityLabel(localized("确认稍后提醒"))
+                .accessibilityValue(localized("%ld 分钟后", model.snoozeDuration.rawValue))
         }
     }
 }

@@ -101,6 +101,12 @@ cp "$PROJECT_DIR/Assets/AppIcon.icns" "$CONTENTS_DIR/Resources/AppIcon.icns"
 cp "$PROJECT_DIR/Assets/MenuBarIcon.svg" "$CONTENTS_DIR/Resources/MenuBarIcon.svg"
 mkdir -p "$CONTENTS_DIR/Resources/AlarmBg"
 rsync -a --delete "$PROJECT_DIR/Assets/AlarmBg/" "$CONTENTS_DIR/Resources/AlarmBg/"
+for localization in en zh-Hans zh-Hant; do
+    mkdir -p "$CONTENTS_DIR/Resources/$localization.lproj"
+    rsync -a --delete \
+        "$PROJECT_DIR/Resources/Localization/$localization.lproj/" \
+        "$CONTENTS_DIR/Resources/$localization.lproj/"
+done
 codesign --force --deep --sign - "$APP_DIR"
 touch "$APP_DIR"
 

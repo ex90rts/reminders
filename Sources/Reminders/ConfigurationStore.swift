@@ -27,7 +27,9 @@ final class ConfigurationStore: ObservableObject {
     }
 
     func addItem() {
-        configuration.items.append(ReminderItem(text: "新的提醒"))
+        configuration.items.append(
+            ReminderItem(text: configuration.displayLanguage.localized("新的提醒"))
+        )
     }
 
     func removeItem(id: ReminderItem.ID) {
@@ -52,7 +54,7 @@ final class ConfigurationStore: ObservableObject {
         let components = calendar.dateComponents([.hour], from: now)
         configuration.timedReminders.append(
             TimedReminderItem(
-                text: "新的定时提醒",
+                text: configuration.displayLanguage.localized("新的定时提醒"),
                 hour: components.hour ?? 9,
                 minute: 0
             )
