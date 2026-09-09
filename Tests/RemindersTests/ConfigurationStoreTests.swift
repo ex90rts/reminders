@@ -169,6 +169,25 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertEqual(restoredStore.configuration.timedReminders.first?.specificDate, targetDate)
     }
 
+    func testMonthlyTimedReminderPersistsAcrossStoreInstances() {
+        var firstStore: ConfigurationStore? = ConfigurationStore(defaults: defaults, storageKey: "test")
+        firstStore?.configuration.timedReminders = [
+            TimedReminderItem(
+                text: "月末复盘",
+                frequency: .monthly,
+                monthlyDays: [.day(15), .lastDay],
+                hour: 20,
+                minute: 30
+            )
+        ]
+        firstStore = nil
+
+        let restoredStore = ConfigurationStore(defaults: defaults, storageKey: "test")
+
+        XCTAssertEqual(restoredStore.configuration.timedReminders.first?.frequency, .monthly)
+        XCTAssertEqual(restoredStore.configuration.timedReminders.first?.monthlyDays, [.day(15), .lastDay])
+    }
+
     func testLegacyTimedReminderUsesDefaultIntervalHours() throws {
         var configuration = AppConfiguration.initial
         configuration.timedReminders = [
@@ -181,6 +200,7 @@ final class ConfigurationStoreTests: XCTestCase {
         var timedReminders = try XCTUnwrap(legacyJSON["timedReminders"] as? [[String: Any]])
         timedReminders[0].removeValue(forKey: "intervalHours")
         timedReminders[0].removeValue(forKey: "soundName")
+        timedReminders[0].removeValue(forKey: "monthlyDays")
         legacyJSON["timedReminders"] = timedReminders
         defaults.set(try JSONSerialization.data(withJSONObject: legacyJSON), forKey: "test")
 
@@ -192,6 +212,45 @@ final class ConfigurationStoreTests: XCTestCase {
         )
         XCTAssertNil(store.configuration.timedReminders.first?.soundName)
         XCTAssertNil(store.configuration.timedReminders.first?.specificDate)
+        XCTAssertEqual(store.configuration.timedReminders.first?.monthlyDays, [.day(1)])
+    }
+
+    func testSingleMonthlyDayConfigurationMigratesToMultipleSelection() throws {
+        var configuration = AppConfiguration.initial
+        configuration.timedReminders = [
+            TimedReminderItem(text: "旧版月度提醒", hour: 10, minute: 20)
+        ]
+        let encoded = try JSONEncoder().encode(configuration)
+        var legacyJSON = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+        var timedReminders = try XCTUnwrap(legacyJSON["timedReminders"] as? [[String: Any]])
+        timedReminders[0].removeValue(forKey: "monthlyDays")
+        timedReminders[0]["monthlyDay"] = ["rawValue": MonthlyReminderDay.lastDay.rawValue]
+        legacyJSON["timedReminders"] = timedReminders
+        defaults.set(try JSONSerialization.data(withJSONObject: legacyJSON), forKey: "test")
+
+        let store = ConfigurationStore(defaults: defaults, storageKey: "test")
+
+        XCTAssertEqual(store.configuration.timedReminders.first?.monthlyDays, [.lastDay])
+    }
+
+    func testRemovedFirstDayOptionMigratesToNumberedDayOne() throws {
+        var configuration = AppConfiguration.initial
+        configuration.timedReminders = [
+            TimedReminderItem(
+                text: "旧版月初提醒",
+                frequency: .monthly,
+                monthlyDays: [.firstDay],
+                hour: 9,
+                minute: 0
+            )
+        ]
+        defaults.set(try JSONEncoder().encode(configuration), forKey: "test")
+
+        let store = ConfigurationStore(defaults: defaults, storageKey: "test")
+
+        XCTAssertEqual(store.configuration.timedReminders.first?.monthlyDays, [.day(1)])
     }
 
     func testTimedReminderValuesAreSanitized() {
@@ -199,6 +258,7 @@ final class ConfigurationStoreTests: XCTestCase {
             text: "边界检查",
             frequency: .selectedWeekdays,
             selectedWeekdays: [],
+            monthlyDays: [],
             hour: 99,
             minute: -4,
             intervalHours: 99,
@@ -210,6 +270,40 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertEqual(reminder.intervalHours, 24)
         XCTAssertNil(reminder.soundName)
         XCTAssertEqual(reminder.selectedWeekdays, [.monday])
+        XCTAssertEqual(reminder.monthlyDays, [.day(1)])
+    }
+
+    func testMonthlyReminderDayOptionsAndSanitization() {
+        XCTAssertEqual(MonthlyReminderDay.allOptions.count, 32)
+        XCTAssertEqual(Set(MonthlyReminderDay.allOptions).count, 32)
+        XCTAssertTrue((1...31).allSatisfy { MonthlyReminderDay.allOptions.contains(.day($0)) })
+        XCTAssertFalse(MonthlyReminderDay.allOptions.contains(.firstDay))
+        XCTAssertTrue(MonthlyReminderDay.allOptions.contains(.lastDay))
+        XCTAssertEqual(MonthlyReminderDay.firstDay.sanitized(), .day(1))
+        XCTAssertEqual(MonthlyReminderDay(rawValue: 99).sanitized(), .day(1))
+    }
+
+    func testMonthlyFrequencyAppearsBeforeSelectedWeekdays() throws {
+        let monthlyIndex = try XCTUnwrap(TimedReminderFrequency.allCases.firstIndex(of: .monthly))
+        let weekdaysIndex = try XCTUnwrap(
+            TimedReminderFrequency.allCases.firstIndex(of: .selectedWeekdays)
+        )
+
+        XCTAssertLessThan(monthlyIndex, weekdaysIndex)
+    }
+
+    func testSettingsMenuItemExplicitlyHidesImageWhenSupported() {
+        let item = NSMenuItem(title: "打开设置…", action: nil, keyEquivalent: "")
+        item.image = NSImage(systemSymbolName: "gear", accessibilityDescription: nil)
+
+        MenuItemImageVisibilityCompatibility.hideImage(for: item)
+
+        XCTAssertNil(item.image)
+        let visibilitySetter = NSSelectorFromString("setPreferredImageVisibility:")
+        if item.responds(to: visibilitySetter) {
+            let visibility = item.value(forKey: "preferredImageVisibility") as? NSNumber
+            XCTAssertEqual(visibility?.intValue, 2)
+        }
     }
 
     func testTimedReminderDefaultsToNoSound() {
@@ -286,6 +380,7 @@ final class ConfigurationStoreTests: XCTestCase {
 
         XCTAssertEqual(store.configuration.timedReminders.last?.hour, 10)
         XCTAssertEqual(store.configuration.timedReminders.last?.minute, 0)
+        XCTAssertEqual(store.configuration.timedReminders.last?.selectedWeekdays, [.monday])
     }
 
     func testTimedReminderBindingRemainsReadableWhileDeletedRowIsDismantled() {
@@ -353,6 +448,22 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertEqual(store.configuration.timedReminders[0].selectedWeekdays, [.monday])
     }
 
+    func testCannotRemoveLastSelectedMonthlyDay() {
+        let store = ConfigurationStore(defaults: defaults, storageKey: "test")
+        let reminder = TimedReminderItem(
+            text: "每月一号提醒",
+            frequency: .monthly,
+            monthlyDays: [.day(1)],
+            hour: 9,
+            minute: 0
+        )
+        store.configuration.timedReminders = [reminder]
+
+        store.toggleTimedReminderMonthlyDay(id: reminder.id, day: .day(1))
+
+        XCTAssertEqual(store.configuration.timedReminders[0].monthlyDays, [.day(1)])
+    }
+
     func testDailyTimedReminderFindsSameDayAndNextDayOccurrences() throws {
         let calendar = utcGregorianCalendar()
         let reminder = TimedReminderItem(text: "喝水", hour: 9, minute: 30)
@@ -380,6 +491,82 @@ final class ConfigurationStoreTests: XCTestCase {
         let occurrence = TimedReminderSchedule.nextOccurrence(after: monday, for: reminder, calendar: calendar)
 
         XCTAssertEqual(occurrence?.date, try makeDate(2024, 1, 3, 18, 15, calendar: calendar))
+    }
+
+    func testMonthlyNumberedDaySkipsMonthsWithoutThatDate() throws {
+        let calendar = utcGregorianCalendar()
+        let reminder = TimedReminderItem(
+            text: "月末报表",
+            frequency: .monthly,
+            monthlyDays: [.day(31)],
+            hour: 9,
+            minute: 30
+        )
+
+        let occurrence = TimedReminderSchedule.nextOccurrence(
+            after: try makeDate(2024, 1, 31, 10, 0, calendar: calendar),
+            for: reminder,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(occurrence?.date, try makeDate(2024, 3, 31, 9, 30, calendar: calendar))
+    }
+
+    func testMonthlyFirstAndLastDatesFollowCalendarMonth() throws {
+        let calendar = utcGregorianCalendar()
+        let firstDateReminder = TimedReminderItem(
+            text: "月初计划",
+            frequency: .monthly,
+            monthlyDays: [.day(1)],
+            hour: 8,
+            minute: 0
+        )
+        let lastDayReminder = TimedReminderItem(
+            text: "月末复盘",
+            frequency: .monthly,
+            monthlyDays: [.lastDay],
+            hour: 18,
+            minute: 45
+        )
+
+        let firstDateOccurrence = TimedReminderSchedule.nextOccurrence(
+            after: try makeDate(2024, 1, 15, 12, 0, calendar: calendar),
+            for: firstDateReminder,
+            calendar: calendar
+        )
+        let lastDayOccurrence = TimedReminderSchedule.nextOccurrence(
+            after: try makeDate(2024, 2, 1, 0, 0, calendar: calendar),
+            for: lastDayReminder,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(firstDateOccurrence?.date, try makeDate(2024, 2, 1, 8, 0, calendar: calendar))
+        XCTAssertEqual(lastDayOccurrence?.date, try makeDate(2024, 2, 29, 18, 45, calendar: calendar))
+    }
+
+    func testMonthlyReminderUsesNextSelectedDay() throws {
+        let calendar = utcGregorianCalendar()
+        let reminder = TimedReminderItem(
+            text: "月度节点",
+            frequency: .monthly,
+            monthlyDays: [.day(5), .day(20)],
+            hour: 9,
+            minute: 30
+        )
+
+        let sameMonth = TimedReminderSchedule.nextOccurrence(
+            after: try makeDate(2024, 1, 6, 10, 0, calendar: calendar),
+            for: reminder,
+            calendar: calendar
+        )
+        let nextMonth = TimedReminderSchedule.nextOccurrence(
+            after: try makeDate(2024, 1, 20, 10, 0, calendar: calendar),
+            for: reminder,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(sameMonth?.date, try makeDate(2024, 1, 20, 9, 30, calendar: calendar))
+        XCTAssertEqual(nextMonth?.date, try makeDate(2024, 2, 5, 9, 30, calendar: calendar))
     }
 
     func testSpecificDateTimedReminderOnlyOccursOnce() throws {

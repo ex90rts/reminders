@@ -32,6 +32,9 @@ enum TimedReminderSchedule {
         case .hourlyInterval:
             return nextHourlyIntervalDate(after: date, for: reminder, calendar: calendar)
                 .map { TimedReminderOccurrence(reminderID: reminder.id, date: $0) }
+        case .monthly:
+            return nextMonthlyDate(after: date, for: reminder, calendar: calendar)
+                .map { TimedReminderOccurrence(reminderID: reminder.id, date: $0) }
         case .specificDate:
             guard let specificDate = reminder.specificDate, specificDate > date else { return nil }
             return TimedReminderOccurrence(reminderID: reminder.id, date: specificDate)
@@ -47,6 +50,8 @@ enum TimedReminderSchedule {
             weekdays = [nil]
         case .selectedWeekdays:
             weekdays = reminder.selectedWeekdays.map(Optional.some)
+        case .monthly:
+            preconditionFailure("Monthly reminders are handled before weekday matching")
         case .specificDate:
             preconditionFailure("Specific dates are handled before weekday matching")
         }
@@ -103,6 +108,48 @@ enum TimedReminderSchedule {
             return nil
         }
         return configuredStartTime(onDayContaining: tomorrow, for: reminder, calendar: calendar)
+    }
+
+    private static func nextMonthlyDate(
+        after date: Date,
+        for reminder: TimedReminderItem,
+        calendar: Calendar
+    ) -> Date? {
+        var monthComponents = calendar.dateComponents([.era, .year, .month], from: date)
+        monthComponents.day = 1
+        guard let currentMonthStart = calendar.date(from: monthComponents) else { return nil }
+
+        // Every numbered Gregorian day occurs within this window, including February leap-day cases.
+        for monthOffset in 0..<24 {
+            guard
+                let monthStart = calendar.date(byAdding: .month, value: monthOffset, to: currentMonthStart),
+                let dayRange = calendar.range(of: .day, in: .month, for: monthStart)
+            else { continue }
+
+            let nextCandidate = Set(
+                reminder.monthlyDays.compactMap { $0.resolvedDay(in: dayRange) }
+            )
+            .sorted()
+            .compactMap { day -> Date? in
+                guard let dayDate = calendar.date(
+                    byAdding: .day,
+                    value: day - dayRange.lowerBound,
+                    to: monthStart
+                ) else { return nil }
+
+                return configuredStartTime(
+                    onDayContaining: dayDate,
+                    for: reminder,
+                    calendar: calendar
+                )
+            }
+            .first { $0 > date }
+
+            if let nextCandidate {
+                return nextCandidate
+            }
+        }
+        return nil
     }
 
     private static func configuredStartTime(

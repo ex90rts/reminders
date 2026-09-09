@@ -1,6 +1,21 @@
 import AppKit
 import Combine
 
+enum MenuItemImageVisibilityCompatibility {
+    private static let preferredImageVisibilityKey = "preferredImageVisibility"
+    private static let preferredImageVisibilitySetter = NSSelectorFromString("setPreferredImageVisibility:")
+    private static let hiddenImageVisibilityRawValue = 2
+
+    static func hideImage(for item: NSMenuItem) {
+        item.image = nil
+        guard item.responds(to: preferredImageVisibilitySetter) else { return }
+
+        // This AppKit property is macOS 27-only. KVC preserves the behavior while
+        // keeping the project compilable with the macOS 15 SDK used by GitHub Actions.
+        item.setValue(hiddenImageVisibilityRawValue, forKey: preferredImageVisibilityKey)
+    }
+}
+
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let store = ConfigurationStore()
@@ -74,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         let settingsItem = menuItem("打开设置…", action: #selector(openSettings))
-        settingsItem.image = nil
+        MenuItemImageVisibilityCompatibility.hideImage(for: settingsItem)
         menu.addItem(settingsItem)
 
         let visibilityItem = menuItem("显示常驻提醒", action: #selector(toggleOverlay))

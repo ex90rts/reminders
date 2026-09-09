@@ -29,6 +29,7 @@ struct ReminderItem: Codable, Equatable, Identifiable {
 enum TimedReminderFrequency: String, Codable, CaseIterable, Hashable {
     case hourlyInterval
     case daily
+    case monthly
     case selectedWeekdays
     case specificDate
 
@@ -37,6 +38,7 @@ enum TimedReminderFrequency: String, Codable, CaseIterable, Hashable {
         case .hourlyInterval: "每隔几小时"
         case .daily: "每天"
         case .selectedWeekdays: "指定星期"
+        case .monthly: "每月"
         case .specificDate: "指定日期"
         }
     }
@@ -64,6 +66,48 @@ enum ReminderWeekday: Int, Codable, CaseIterable, Hashable {
     }
 }
 
+struct MonthlyReminderDay: Codable, Equatable, Hashable, Identifiable {
+    static let numberedDayRange = 1...31
+    // Retained only to migrate configurations saved before "第一天" was removed.
+    static let firstDay = MonthlyReminderDay(rawValue: 0)
+    static let lastDay = MonthlyReminderDay(rawValue: 32)
+    static let allOptions = numberedDayRange.map(day) + [lastDay]
+
+    let rawValue: Int
+
+    var id: Int { rawValue }
+
+    var title: String {
+        switch self {
+        case Self.firstDay: "第一天"
+        case Self.lastDay: "最后一天"
+        default: "\(rawValue) 号"
+        }
+    }
+
+    static func day(_ day: Int) -> MonthlyReminderDay {
+        MonthlyReminderDay(rawValue: day)
+    }
+
+    func resolvedDay(in range: Range<Int>) -> Int? {
+        switch self {
+        case Self.firstDay:
+            range.first
+        case Self.lastDay:
+            range.last
+        default:
+            range.contains(rawValue) ? rawValue : nil
+        }
+    }
+
+    func sanitized() -> MonthlyReminderDay {
+        if self == Self.firstDay {
+            return .day(1)
+        }
+        return Self.allOptions.contains(self) ? self : .day(1)
+    }
+}
+
 struct TimedReminderItem: Codable, Equatable, Identifiable {
     static let defaultIntervalHours = 2
     static let intervalHoursRange = 1...24
@@ -73,6 +117,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
     var isEnabled: Bool
     var frequency: TimedReminderFrequency
     var selectedWeekdays: Set<ReminderWeekday>
+    var monthlyDays: Set<MonthlyReminderDay>
     var hour: Int
     var minute: Int
     var specificDate: Date?
@@ -85,7 +130,8 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         text: String,
         isEnabled: Bool = true,
         frequency: TimedReminderFrequency = .daily,
-        selectedWeekdays: Set<ReminderWeekday> = Set(ReminderWeekday.allCases),
+        selectedWeekdays: Set<ReminderWeekday> = [.monday],
+        monthlyDays: Set<MonthlyReminderDay> = [.day(1)],
         hour: Int,
         minute: Int,
         specificDate: Date? = nil,
@@ -98,6 +144,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         self.isEnabled = isEnabled
         self.frequency = frequency
         self.selectedWeekdays = selectedWeekdays
+        self.monthlyDays = monthlyDays
         self.hour = hour
         self.minute = minute
         self.specificDate = specificDate
@@ -112,12 +159,17 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         case isEnabled
         case frequency
         case selectedWeekdays
+        case monthlyDays
         case hour
         case minute
         case specificDate
         case intervalHours
         case soundName
         case backgroundImageName
+    }
+
+    private enum LegacyCodingKeys: String, CodingKey {
+        case monthlyDay
     }
 
     init(from decoder: Decoder) throws {
@@ -127,7 +179,20 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
         frequency = try container.decodeIfPresent(TimedReminderFrequency.self, forKey: .frequency) ?? .daily
         selectedWeekdays = try container.decodeIfPresent(Set<ReminderWeekday>.self, forKey: .selectedWeekdays)
-            ?? Set(ReminderWeekday.allCases)
+            ?? [.monday]
+        if let decodedMonthlyDays = try container.decodeIfPresent(
+            Set<MonthlyReminderDay>.self,
+            forKey: .monthlyDays
+        ) {
+            monthlyDays = decodedMonthlyDays
+        } else if let legacyMonthlyDay = try decoder.container(keyedBy: LegacyCodingKeys.self).decodeIfPresent(
+            MonthlyReminderDay.self,
+            forKey: .monthlyDay
+        ) {
+            monthlyDays = [legacyMonthlyDay]
+        } else {
+            monthlyDays = [.day(1)]
+        }
         hour = try container.decodeIfPresent(Int.self, forKey: .hour) ?? 9
         minute = try container.decodeIfPresent(Int.self, forKey: .minute) ?? 0
         specificDate = try container.decodeIfPresent(Date.self, forKey: .specificDate)
@@ -141,6 +206,10 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         var copy = self
         copy.hour = copy.hour.clamped(to: 0...23)
         copy.minute = copy.minute.clamped(to: 0...59)
+        copy.monthlyDays = Set(copy.monthlyDays.map { $0.sanitized() })
+        if copy.monthlyDays.isEmpty {
+            copy.monthlyDays = [.day(1)]
+        }
         copy.intervalHours = copy.intervalHours.clamped(to: Self.intervalHoursRange)
         copy.soundName = copy.soundName?.trimmingCharacters(in: .whitespacesAndNewlines)
         if copy.soundName?.isEmpty == true {

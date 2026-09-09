@@ -77,6 +77,16 @@ final class ConfigurationStore: ObservableObject {
         }
     }
 
+    func toggleTimedReminderMonthlyDay(id: TimedReminderItem.ID, day: MonthlyReminderDay) {
+        guard let index = configuration.timedReminders.firstIndex(where: { $0.id == id }) else { return }
+        if configuration.timedReminders[index].monthlyDays.contains(day) {
+            guard configuration.timedReminders[index].monthlyDays.count > 1 else { return }
+            configuration.timedReminders[index].monthlyDays.remove(day)
+        } else {
+            configuration.timedReminders[index].monthlyDays.insert(day)
+        }
+    }
+
     func selectResidentReminderPosition(_ position: ResidentReminderPosition) {
         var updatedConfiguration = configuration
         updatedConfiguration.residentReminderPosition = position

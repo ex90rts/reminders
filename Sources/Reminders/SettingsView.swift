@@ -429,6 +429,19 @@ struct SettingsView: View {
                 }
             }
 
+        case .monthly:
+            recurrenceDetailSurface(systemImage: "calendar.circle") {
+                recurrenceControlGroup("提醒时间") {
+                    reminderTimePicker(for: reminder, accessibilityLabel: "每月提醒时间")
+                }
+                recurrenceDetailDivider
+                recurrenceControlGroup("提醒日期") {
+                    MonthlyDayPickerButton(selectedDays: reminder.monthlyDays) { day in
+                        store.toggleTimedReminderMonthlyDay(id: reminder.id, day: day)
+                    }
+                }
+            }
+
         case .specificDate:
             recurrenceDetailSurface(systemImage: "calendar.badge.clock") {
                 recurrenceControlGroup("提醒时间") {
@@ -829,7 +842,7 @@ struct SettingsView: View {
                 aboutFeatureRow(
                     systemImage: "alarm.fill",
                     title: "定时提醒",
-                    description: "按小时、每天、指定星期或日期弹出提醒。"
+                    description: "按小时、每天、指定星期、每月或指定日期弹出提醒。"
                 )
 
                 settingsRowDivider
@@ -1372,6 +1385,148 @@ private struct PremiumTooltipBubble: View {
             }
             .shadow(color: .black.opacity(0.20), radius: 8, y: 3)
             .accessibilityHidden(true)
+    }
+}
+
+private struct MonthlyDayPickerButton: View {
+    let selectedDays: Set<MonthlyReminderDay>
+    let toggleDay: (MonthlyReminderDay) -> Void
+
+    @State private var isPickerPresented = false
+
+    private let numberedDayRows = [
+        Array(1...7),
+        Array(8...14),
+        Array(15...21),
+        Array(22...28),
+        Array(29...31),
+    ]
+
+    var body: some View {
+        Button {
+            isPickerPresented = true
+        } label: {
+            HStack(spacing: 6) {
+                Text(selectionSummary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+            .frame(minWidth: 76, maxWidth: 200, alignment: .leading)
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .accessibilityLabel("每月提醒日期")
+        .accessibilityValue(accessibilitySelectionSummary)
+        .popover(isPresented: $isPickerPresented, arrowEdge: .bottom) {
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("选择每月提醒日期")
+                        .font(.headline)
+
+                    Text("可多选，当月没有该日期则自动跳过")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(numberedDayRows.indices, id: \.self) { rowIndex in
+                        HStack(spacing: 6) {
+                            ForEach(numberedDayRows[rowIndex], id: \.self) { day in
+                                dayButton(.day(day))
+                            }
+
+                            if rowIndex == numberedDayRows.count - 1 {
+                                dayButton(.lastDay, horizontalPadding: 10)
+                            }
+                        }
+                    }
+                }
+
+                Divider()
+
+                HStack {
+                    Text("已选择 \(selectedDays.count) 项")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Spacer()
+
+                    Button("完成") {
+                        isPickerPresented = false
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                    .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(14)
+            .frame(width: 274)
+        }
+    }
+
+    private var selectionSummary: String {
+        var components: [String] = []
+        let numberedDays = selectedDays
+            .filter { MonthlyReminderDay.numberedDayRange.contains($0.rawValue) }
+            .map(\.rawValue)
+            .sorted()
+
+        if !numberedDays.isEmpty {
+            components.append("\(numberedDays.map(String.init).joined(separator: ",")) 号")
+        }
+        if selectedDays.contains(.lastDay) {
+            components.append(MonthlyReminderDay.lastDay.title)
+        }
+
+        return components.isEmpty ? "选择日期" : components.joined(separator: ",")
+    }
+
+    private var accessibilitySelectionSummary: String {
+        selectedDays
+            .sorted { $0.rawValue < $1.rawValue }
+            .map(\.title)
+            .joined(separator: "、")
+    }
+
+    private func dayButton(
+        _ day: MonthlyReminderDay,
+        horizontalPadding: CGFloat = 0
+    ) -> some View {
+        let isSelected = selectedDays.contains(day)
+        return Button {
+            toggleDay(day)
+        } label: {
+            Text(pickerTitle(for: day))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isSelected ? Color.white : Color.secondary)
+                .frame(minWidth: 30, minHeight: 28)
+                .padding(.horizontal, horizontalPadding)
+                .fixedSize(horizontal: true, vertical: false)
+                .background(
+                    isSelected ? Color.accentColor : Color.secondary.opacity(0.10),
+                    in: RoundedRectangle(cornerRadius: 7)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 7)
+                        .stroke(isSelected ? Color.clear : Color.secondary.opacity(0.20), lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .help(day.title)
+        .accessibilityLabel(day.title)
+        .accessibilityValue(isSelected ? "已选择" : "未选择")
+    }
+
+    private func pickerTitle(for day: MonthlyReminderDay) -> String {
+        guard MonthlyReminderDay.numberedDayRange.contains(day.rawValue) else {
+            return day.title
+        }
+        return String(day.rawValue)
     }
 }
 
