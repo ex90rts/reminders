@@ -49,19 +49,28 @@ jobs:
       - name: Verify release archive
         shell: bash
         run: |
-          codesign --verify --deep --strict "dist/清醒贴.app"
-          test -f "dist/清醒贴-macOS15-arm64.zip"
+          APP_PATH="dist/Reminders.app"
+          ZIP_PATH="dist/Reminders-${APP_VERSION}-macOS-arm64.zip"
+          DMG_PATH="dist/Reminders-${APP_VERSION}-macOS-arm64.dmg"
+          codesign --verify --deep --strict "$APP_PATH"
+          test -x "$APP_PATH/Contents/MacOS/Reminders"
+          test -f "$ZIP_PATH"
+          test -f "$DMG_PATH"
+          hdiutil verify "$DMG_PATH"
 
       - name: Create or update GitHub Release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          ASSET="dist/清醒贴-macOS15-arm64.zip"
+          ASSETS=(
+            "dist/Reminders-${APP_VERSION}-macOS-arm64.zip"
+            "dist/Reminders-${APP_VERSION}-macOS-arm64.dmg"
+          )
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "$ASSET" --clobber
+            gh release upload "$GITHUB_REF_NAME" "${ASSETS[@]}" --clobber
           else
-            gh release create "$GITHUB_REF_NAME" "$ASSET" \
+            gh release create "$GITHUB_REF_NAME" "${ASSETS[@]}" \
               --verify-tag \
               --title "清醒贴 $APP_VERSION" \
               --generate-notes

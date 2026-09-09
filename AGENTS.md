@@ -48,14 +48,14 @@ Build the distributable app. Skip icon regeneration when icon sources have not c
 
 By default, every successful app build increments the patch component of the current `CFBundleShortVersionString` (for example, `1.0.1` becomes `1.0.2`). Pass `--version x.y.z` only when an explicit semantic version is required. Test runs never change either version. Every successful app build writes `CFBundleVersion` as the current local timestamp in `YYYYMMDDHHmmss` format.
 
-After packaging, verify `dist/清醒贴.app` with `codesign --verify --deep --strict` before reporting a successful release build.
+After packaging, verify `dist/Reminders.app` with `codesign --verify --deep --strict` before reporting a successful release build.
 
 ## Development completion
 
 After every source-code change, do not stop at tests. Unless the user explicitly asks otherwise, complete the local delivery loop before reporting completion:
 
 1. Run the complete test suite.
-2. Build `dist/清醒贴.app` with `./scripts/build-app.sh --skip-icons` when icon sources are unchanged.
+2. Build `dist/Reminders.app` with `./scripts/build-app.sh --skip-icons` when icon sources are unchanged.
 3. Verify the packaged app's signature and embedded version.
 4. Gracefully stop the currently running `com.webber.reminders` instance and launch the newly built app.
-5. Confirm that the new process is running from this project's `dist/清醒贴.app`.
+5. Confirm that the new process is running from this project's `dist/Reminders.app`.

@@ -3,9 +3,9 @@ set -euo pipefail
 
 SCRIPT_DIR=${0:A:h}
 PROJECT_DIR=${SCRIPT_DIR:h}
-APP_DIR="$PROJECT_DIR/dist/清醒贴.app"
+DIST_DIR="$PROJECT_DIR/dist"
+APP_DIR="$DIST_DIR/Reminders.app"
 CONTENTS_DIR="$APP_DIR/Contents"
-ARCHIVE_PATH="$PROJECT_DIR/dist/清醒贴-macOS15-arm64.zip"
 
 cd "$PROJECT_DIR"
 
@@ -66,6 +66,10 @@ if [[ ! "$RELEASE_VERSION" == <->.<->.<-> ]]; then
     exit 2
 fi
 
+PACKAGE_BASENAME="Reminders-$RELEASE_VERSION-macOS-arm64"
+ARCHIVE_PATH="$DIST_DIR/$PACKAGE_BASENAME.zip"
+DISK_IMAGE_PATH="$DIST_DIR/$PACKAGE_BASENAME.dmg"
+
 if [[ "${SKIP_ICON_BUILD:-0}" != "1" ]]; then
     zsh "$PROJECT_DIR/scripts/build-icons.sh"
 fi
@@ -91,6 +95,7 @@ BUILD_VERSION=$(date +%Y%m%d%H%M%S)
 
 mkdir -p "$CONTENTS_DIR/MacOS" "$CONTENTS_DIR/Resources"
 cp "$BIN_DIR/Reminders" "$CONTENTS_DIR/MacOS/Reminders"
+chmod 755 "$CONTENTS_DIR/MacOS/Reminders"
 cp "$PROJECT_DIR/Info.plist" "$CONTENTS_DIR/Info.plist"
 cp "$PROJECT_DIR/Assets/AppIcon.icns" "$CONTENTS_DIR/Resources/AppIcon.icns"
 cp "$PROJECT_DIR/Assets/MenuBarIcon.svg" "$CONTENTS_DIR/Resources/MenuBarIcon.svg"
@@ -102,6 +107,20 @@ touch "$APP_DIR"
 rm -f "$ARCHIVE_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ARCHIVE_PATH"
 
+DMG_STAGING_DIR=$(mktemp -d "$PROJECT_DIR/.build/reminders-dmg.XXXXXX")
+trap 'rm -rf "$DMG_STAGING_DIR"' EXIT
+ditto "$APP_DIR" "$DMG_STAGING_DIR/Reminders.app"
+ln -s /Applications "$DMG_STAGING_DIR/Applications"
+rm -f "$DISK_IMAGE_PATH"
+hdiutil create \
+    -quiet \
+    -volname "Reminders $RELEASE_VERSION" \
+    -srcfolder "$DMG_STAGING_DIR" \
+    -ov \
+    -format UDZO \
+    "$DISK_IMAGE_PATH"
+
 print -r -- "$APP_DIR"
 print -r -- "$ARCHIVE_PATH"
+print -r -- "$DISK_IMAGE_PATH"
 print -r -- "Version $RELEASE_VERSION (build $BUILD_VERSION)"
