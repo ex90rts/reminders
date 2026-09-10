@@ -170,6 +170,7 @@ final class ConfigurationStoreTests: XCTestCase {
                 minute: 30,
                 intervalHours: 4,
                 soundName: "Glass",
+                autoCloseEnabled: true,
                 backgroundImageName: "builtin:alarm-bg-02.jpg"
             )
         ]
@@ -183,6 +184,7 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertEqual(restoredStore.configuration.timedReminders[0].minute, 30)
         XCTAssertEqual(restoredStore.configuration.timedReminders[0].intervalHours, 4)
         XCTAssertEqual(restoredStore.configuration.timedReminders[0].soundName, "Glass")
+        XCTAssertTrue(restoredStore.configuration.timedReminders[0].autoCloseEnabled)
         XCTAssertEqual(
             restoredStore.configuration.timedReminders[0].backgroundImageName,
             "builtin:alarm-bg-02.jpg"
@@ -242,6 +244,7 @@ final class ConfigurationStoreTests: XCTestCase {
         timedReminders[0].removeValue(forKey: "intervalHours")
         timedReminders[0].removeValue(forKey: "soundName")
         timedReminders[0].removeValue(forKey: "monthlyDays")
+        timedReminders[0].removeValue(forKey: "autoCloseEnabled")
         legacyJSON["timedReminders"] = timedReminders
         defaults.set(try JSONSerialization.data(withJSONObject: legacyJSON), forKey: "test")
 
@@ -254,6 +257,30 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertNil(store.configuration.timedReminders.first?.soundName)
         XCTAssertNil(store.configuration.timedReminders.first?.specificDate)
         XCTAssertEqual(store.configuration.timedReminders.first?.monthlyDays, [.day(1)])
+        XCTAssertFalse(store.configuration.timedReminders[0].autoCloseEnabled)
+    }
+
+    func testLegacyAutoCloseDefaultFollowsReminderFrequency() throws {
+        var configuration = AppConfiguration.initial
+        configuration.timedReminders = [
+            TimedReminderItem(text: "小时提醒", frequency: .hourlyInterval, hour: 9, minute: 0),
+            TimedReminderItem(text: "每日提醒", frequency: .daily, hour: 10, minute: 0),
+        ]
+        let encoded = try JSONEncoder().encode(configuration)
+        var legacyJSON = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+        )
+        var timedReminders = try XCTUnwrap(legacyJSON["timedReminders"] as? [[String: Any]])
+        for index in timedReminders.indices {
+            timedReminders[index].removeValue(forKey: "autoCloseEnabled")
+        }
+        legacyJSON["timedReminders"] = timedReminders
+        defaults.set(try JSONSerialization.data(withJSONObject: legacyJSON), forKey: "test")
+
+        let store = ConfigurationStore(defaults: defaults, storageKey: "test")
+
+        XCTAssertTrue(store.configuration.timedReminders[0].autoCloseEnabled)
+        XCTAssertFalse(store.configuration.timedReminders[1].autoCloseEnabled)
     }
 
     func testSingleMonthlyDayConfigurationMigratesToMultipleSelection() throws {
@@ -410,6 +437,55 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertEqual(confirmedDuration, .twentyMinutes)
     }
 
+    func testPopupPresentationTimeIsLocalizedWithoutYearOrSeconds() throws {
+        let model = TimedReminderPopupModel()
+        model.displayLanguage = .englishUS
+        model.presentationDate = try makeDate(
+            2026,
+            9,
+            10,
+            14,
+            7,
+            calendar: utcGregorianCalendar()
+        )
+
+        let text = model.presentationTimeText(timeZone: try XCTUnwrap(TimeZone(secondsFromGMT: 0)))
+
+        XCTAssertEqual(text, "Sep 10, 2:07 PM")
+        XCTAssertFalse(text.contains("2026"))
+    }
+
+    func testTimedReminderAutoCloseDefaultsFollowFrequencyAndPreserveOverrides() {
+        XCTAssertTrue(
+            TimedReminderItem(
+                text: "小时提醒",
+                frequency: .hourlyInterval,
+                hour: 9,
+                minute: 0
+            ).autoCloseEnabled
+        )
+        XCTAssertFalse(
+            TimedReminderItem(
+                text: "每日提醒",
+                frequency: .daily,
+                hour: 9,
+                minute: 0
+            ).autoCloseEnabled
+        )
+
+        var reminder = TimedReminderItem(text: "切换频率", hour: 9, minute: 0)
+        reminder.updateFrequency(.hourlyInterval)
+        XCTAssertTrue(reminder.autoCloseEnabled)
+
+        reminder.autoCloseEnabled = false
+        reminder.updateFrequency(.monthly)
+        XCTAssertFalse(reminder.autoCloseEnabled)
+
+        reminder.autoCloseEnabled = true
+        reminder.updateFrequency(.selectedWeekdays)
+        XCTAssertTrue(reminder.autoCloseEnabled)
+    }
+
     func testNewTimedReminderDefaultsToCurrentWholeHour() throws {
         let calendar = utcGregorianCalendar()
         let store = ConfigurationStore(defaults: defaults, storageKey: "test")
@@ -422,6 +498,7 @@ final class ConfigurationStoreTests: XCTestCase {
         XCTAssertEqual(store.configuration.timedReminders.last?.hour, 10)
         XCTAssertEqual(store.configuration.timedReminders.last?.minute, 0)
         XCTAssertEqual(store.configuration.timedReminders.last?.selectedWeekdays, [.monday])
+        XCTAssertFalse(store.configuration.timedReminders.last?.autoCloseEnabled ?? true)
     }
 
     func testTimedReminderBindingRemainsReadableWhileDeletedRowIsDismantled() {

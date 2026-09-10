@@ -251,50 +251,27 @@ struct SettingsView: View {
                 Spacer(minLength: 0)
             }
 
-            HStack(alignment: .center, spacing: 12) {
-                editorFieldLabel(localized("铃声"))
+            HStack(alignment: .center, spacing: 60) {
+                reminderSoundSetting(for: reminder)
 
-                HStack(spacing: 4) {
-                    Picker(
-                        localized("铃声"),
-                        selection: timedReminderSoundBinding(for: reminder)
-                    ) {
-                        Text(localized("无铃声")).tag(Optional<String>.none)
+                HStack(alignment: .center, spacing: 12) {
+                    Text(localized("自动关闭"))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: true, vertical: false)
 
-                        if let selectedSound = reminder.soundName,
-                           !SystemSoundLibrary.availableNames.contains(selectedSound) {
-                            Divider()
-
-                            Text(SystemSoundLibrary.displayName(for: selectedSound))
-                                .tag(Optional(selectedSound))
-                        }
-
-                        if !SystemSoundLibrary.availableSounds.isEmpty {
-                            Divider()
-
-                            ForEach(SystemSoundLibrary.availableSounds) { sound in
-                                Text(sound.displayName).tag(Optional(sound.id))
-                            }
-                        }
-                    }
+                    Toggle(
+                        localized("自动关闭"),
+                        isOn: timedReminderBinding(for: reminder, keyPath: \.autoCloseEnabled)
+                    )
                     .labelsHidden()
-                    .pickerStyle(.menu)
-                    .fixedSize(horizontal: true, vertical: false)
-                    .accessibilityLabel(localized("提醒铃声"))
+                    .toggleStyle(.switch)
+                    .controlSize(.small)
+                    .help(localized("提醒弹出后自动关闭"))
+                    .accessibilityLabel(localized("自动关闭定时提醒"))
 
-                    let isPreviewing = previewingReminderID == reminder.id
-                    Button {
-                        toggleSoundPreview(for: reminder)
-                    } label: {
-                        itemActionIcon(isPreviewing ? "stop.fill" : "play.fill")
-                    }
-                    .buttonStyle(HoverActionButtonStyle())
-                    .disabled(currentSoundName(for: reminder) == nil)
-                    .help(localized(isPreviewing ? "停止播放" : "播放铃声"))
-                    .accessibilityLabel(localized(isPreviewing ? "停止播放铃声" : "播放铃声"))
+                    Spacer(minLength: 0)
                 }
-
-                Spacer(minLength: 0)
             }
 
             timedReminderBackgroundSection(for: reminder)
@@ -310,6 +287,53 @@ struct SettingsView: View {
                 .stroke(Color.secondary.opacity(0.12), lineWidth: 1)
         }
         .animation(.easeInOut(duration: 0.16), value: reminder.frequency)
+    }
+
+    private func reminderSoundSetting(for reminder: TimedReminderItem) -> some View {
+        HStack(alignment: .center, spacing: 12) {
+            editorFieldLabel(localized("铃声"))
+
+            HStack(spacing: 4) {
+                Picker(
+                    localized("铃声"),
+                    selection: timedReminderSoundBinding(for: reminder)
+                ) {
+                    Text(localized("无铃声")).tag(Optional<String>.none)
+
+                    if let selectedSound = reminder.soundName,
+                       !SystemSoundLibrary.availableNames.contains(selectedSound) {
+                        Divider()
+
+                        Text(SystemSoundLibrary.displayName(for: selectedSound))
+                            .tag(Optional(selectedSound))
+                    }
+
+                    if !SystemSoundLibrary.availableSounds.isEmpty {
+                        Divider()
+
+                        ForEach(SystemSoundLibrary.availableSounds) { sound in
+                            Text(sound.displayName).tag(Optional(sound.id))
+                        }
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize(horizontal: true, vertical: false)
+                .accessibilityLabel(localized("提醒铃声"))
+
+                let isPreviewing = previewingReminderID == reminder.id
+                Button {
+                    toggleSoundPreview(for: reminder)
+                } label: {
+                    itemActionIcon(isPreviewing ? "stop.fill" : "play.fill")
+                }
+                .buttonStyle(HoverActionButtonStyle())
+                .disabled(currentSoundName(for: reminder) == nil)
+                .help(localized(isPreviewing ? "停止播放" : "播放铃声"))
+                .accessibilityLabel(localized(isPreviewing ? "停止播放铃声" : "播放铃声"))
+            }
+
+        }
     }
 
     private func timedReminderBackgroundSection(for reminder: TimedReminderItem) -> some View {
@@ -1220,14 +1244,14 @@ struct SettingsView: View {
                     return
                 }
 
-                store.configuration.timedReminders[index].frequency = frequency
+                store.configuration.timedReminders[index].updateFrequency(frequency)
                 guard frequency == .specificDate else { return }
 
-                let currentReminder = store.configuration.timedReminders[index]
-                if currentReminder.specificDate.map({ $0 > Date() }) == true { return }
+                let updatedReminder = store.configuration.timedReminders[index]
+                if updatedReminder.specificDate.map({ $0 > Date() }) == true { return }
                 store.configuration.timedReminders[index].specificDate = nextSpecificDate(
-                    hour: currentReminder.hour,
-                    minute: currentReminder.minute
+                    hour: updatedReminder.hour,
+                    minute: updatedReminder.minute
                 )
             }
         )

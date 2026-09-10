@@ -46,6 +46,10 @@ enum TimedReminderFrequency: String, Codable, CaseIterable, Hashable {
         case .specificDate: "指定日期"
         }
     }
+
+    var defaultAutoCloseEnabled: Bool {
+        self == .hourlyInterval
+    }
 }
 
 enum ReminderWeekday: Int, Codable, CaseIterable, Hashable {
@@ -156,6 +160,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
     var specificDate: Date?
     var intervalHours: Int
     var soundName: String?
+    var autoCloseEnabled: Bool
     var backgroundImageName: String?
 
     init(
@@ -170,6 +175,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         specificDate: Date? = nil,
         intervalHours: Int = Self.defaultIntervalHours,
         soundName: String? = nil,
+        autoCloseEnabled: Bool? = nil,
         backgroundImageName: String? = nil
     ) {
         self.id = id
@@ -183,6 +189,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         self.specificDate = specificDate
         self.intervalHours = intervalHours
         self.soundName = soundName
+        self.autoCloseEnabled = autoCloseEnabled ?? frequency.defaultAutoCloseEnabled
         self.backgroundImageName = backgroundImageName
     }
 
@@ -198,6 +205,7 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         case specificDate
         case intervalHours
         case soundName
+        case autoCloseEnabled
         case backgroundImageName
     }
 
@@ -232,7 +240,17 @@ struct TimedReminderItem: Codable, Equatable, Identifiable {
         intervalHours = try container.decodeIfPresent(Int.self, forKey: .intervalHours)
             ?? Self.defaultIntervalHours
         soundName = try container.decodeIfPresent(String.self, forKey: .soundName)
+        autoCloseEnabled = try container.decodeIfPresent(Bool.self, forKey: .autoCloseEnabled)
+            ?? frequency.defaultAutoCloseEnabled
         backgroundImageName = try container.decodeIfPresent(String.self, forKey: .backgroundImageName)
+    }
+
+    mutating func updateFrequency(_ newFrequency: TimedReminderFrequency) {
+        let usesCurrentFrequencyDefault = autoCloseEnabled == frequency.defaultAutoCloseEnabled
+        frequency = newFrequency
+        if usesCurrentFrequencyDefault {
+            autoCloseEnabled = newFrequency.defaultAutoCloseEnabled
+        }
     }
 
     func sanitized() -> TimedReminderItem {

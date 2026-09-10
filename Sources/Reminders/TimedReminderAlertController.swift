@@ -90,6 +90,8 @@ final class TimedReminderAlertController {
         model.secondsRemaining = TimedReminderPopupModel.dismissalSeconds
         model.snoozeDuration = .fiveMinutes
         model.backgroundImage = backgroundImageProvider(reminder)
+        model.autoCloseEnabled = reminder.autoCloseEnabled
+        model.presentationDate = Date()
         model.isPresented = true
 
         centerPanelOnActiveScreen()
@@ -97,7 +99,12 @@ final class TimedReminderAlertController {
         panel.makeKeyAndOrderFront(nil)
         panel.orderFrontRegardless()
         playSound(named: reminder.soundName)
-        startCountdown()
+        if reminder.autoCloseEnabled {
+            startCountdown()
+        } else {
+            countdownTimer?.invalidate()
+            countdownTimer = nil
+        }
     }
 
     private func startCountdown() {

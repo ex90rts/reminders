@@ -25,6 +25,9 @@
 "取消" = "Cancel";
 "重复" = "Repeat";
 "铃声" = "Sound";
+"自动关闭" = "Auto-close";
+"提醒弹出后自动关闭" = "Close automatically after showing";
+"自动关闭定时提醒" = "Auto-close scheduled reminder";
 "无铃声" = "No Sound";
 "提醒铃声" = "Reminder sound";
 "停止播放" = "Stop";

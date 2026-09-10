@@ -33,11 +33,23 @@ final class TimedReminderPopupModel: ObservableObject {
     @Published var snoozeDuration = TimedReminderSnoozeDuration.fiveMinutes
     @Published var backgroundImage: NSImage?
     @Published var displayLanguage = AppLanguage.system
+    @Published var autoCloseEnabled = true
+    @Published var presentationDate = Date()
     var dismiss: () -> Void = {}
     var snooze: (TimedReminderSnoozeDuration) -> Void = { _ in }
 
     func confirmSnooze() {
         snooze(snoozeDuration)
+    }
+
+    func presentationTimeText(timeZone: TimeZone = .autoupdatingCurrent) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = displayLanguage.locale
+        formatter.timeZone = timeZone
+        formatter.dateFormat = displayLanguage.resolved == .englishUS
+            ? "MMM d, h:mm a"
+            : "M月d日 HH:mm"
+        return formatter.string(from: presentationDate)
     }
 }
 
@@ -75,18 +87,7 @@ struct TimedReminderPopupView: View {
                     Spacer(minLength: 10)
 
                     HStack(alignment: .center, spacing: 8) {
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text("\(model.secondsRemaining)")
-                                .font(.system(size: 17, weight: .bold, design: .rounded))
-                                .monospacedDigit()
-                                .foregroundStyle(TimedReminderPopupPalette.accent)
-                                .contentTransition(.numericText())
-
-                            Text(localized("秒后自动关闭"))
-                                .font(.system(size: 11))
-                                .foregroundStyle(TimedReminderPopupPalette.secondaryInk)
-                                .fixedSize()
-                        }
+                        reminderStatus
 
                         Spacer(minLength: 0)
 
@@ -208,6 +209,38 @@ struct TimedReminderPopupView: View {
 
     private var usesImageBackground: Bool {
         model.backgroundImage != nil
+    }
+
+    @ViewBuilder
+    private var reminderStatus: some View {
+        if model.autoCloseEnabled {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(model.secondsRemaining)")
+                    .font(.system(size: 17, weight: .bold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(TimedReminderPopupPalette.accent)
+                    .contentTransition(.numericText())
+
+                Text(localized("秒后自动关闭"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(TimedReminderPopupPalette.secondaryInk)
+                    .fixedSize()
+            }
+        } else {
+            HStack(spacing: 5) {
+                Image(systemName: "clock")
+                    .font(.system(size: 13.2, weight: .semibold))
+
+                Text(model.presentationTimeText())
+                    .font(.system(size: 12, weight: .semibold))
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.86)
+            }
+            .foregroundStyle(TimedReminderPopupPalette.secondaryInk)
+            .accessibilityLabel(localized("提醒时间"))
+            .accessibilityValue(model.presentationTimeText())
+        }
     }
 
     @ViewBuilder
