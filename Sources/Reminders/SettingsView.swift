@@ -148,8 +148,8 @@ struct SettingsView: View {
                 .stroke(Color.secondary.opacity(0.10), lineWidth: 1)
         }
         .padding(.horizontal, 26)
-        .padding(.top, 16)
-        .padding(.bottom, 14)
+        .safeAreaPadding(.top, 12)
+        .padding(.bottom, 12)
     }
 
     @ViewBuilder
