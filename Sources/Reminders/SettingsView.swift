@@ -832,14 +832,17 @@ struct SettingsView: View {
                             }
                             .labelsHidden()
                             .pickerStyle(.menu)
+                            .controlSize(.regular)
 
                             Button {
                                 resetPosition()
                             } label: {
-                                itemActionIcon("arrow.counterclockwise")
+                                Image(systemName: "arrow.counterclockwise")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .frame(width: 16, height: 16)
                             }
                             .buttonStyle(.bordered)
-                            .controlSize(.small)
+                            .controlSize(.regular)
                             .help(localized("恢复默认位置"))
                             .accessibilityLabel(localized("恢复默认位置"))
                         }
@@ -1013,7 +1016,7 @@ struct SettingsView: View {
         .padding(.horizontal, 18)
         .padding(.vertical, 7)
         .background(
-            SettingsAppearancePalette.controlSurface.opacity(0.66),
+            SettingsAppearancePalette.controlSurface,
             in: RoundedRectangle(cornerRadius: 15, style: .continuous)
         )
         .overlay {
@@ -1030,10 +1033,10 @@ struct SettingsView: View {
         HStack(spacing: 14) {
             Image(systemName: systemImage)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.orange)
                 .frame(width: 30, height: 30)
                 .background(
-                    Color.secondary.opacity(0.08),
+                    Color.orange.opacity(0.10),
                     in: RoundedRectangle(cornerRadius: 8, style: .continuous)
                 )
 

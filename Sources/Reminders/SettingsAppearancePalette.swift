@@ -7,11 +7,11 @@ enum SettingsAppearancePalette {
     }
 
     static var contentBackground: Color {
-        windowBackground
+        Color(nsColor: .underPageBackgroundColor)
     }
 
     static var controlSurface: Color {
-        Color(nsColor: .controlBackgroundColor)
+        windowBackground
     }
 
     static var shadow: Color {
