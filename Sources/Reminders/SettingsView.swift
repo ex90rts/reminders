@@ -3,6 +3,15 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
+    private enum Layout {
+        // NSHostingController content does not inherit a useful top safe-area
+        // inset below a standard AppKit title bar. Keep this spacing explicit so
+        // the tab control never appears attached to the title bar.
+        static let tabBarTopInset: CGFloat = 18
+        static let tabBarBottomInset: CGFloat = 14
+        static let tabBarContainerHeight: CGFloat = 82
+    }
+
     private enum SettingsTab: String, CaseIterable, Identifiable {
         case residentReminders
         case timedReminders
@@ -148,8 +157,13 @@ struct SettingsView: View {
                 .stroke(Color.secondary.opacity(0.10), lineWidth: 1)
         }
         .padding(.horizontal, 26)
-        .safeAreaPadding(.top, 12)
-        .padding(.bottom, 12)
+        .padding(.top, Layout.tabBarTopInset)
+        .padding(.bottom, Layout.tabBarBottomInset)
+        .frame(
+            maxWidth: .infinity,
+            minHeight: Layout.tabBarContainerHeight,
+            alignment: .center
+        )
     }
 
     @ViewBuilder
@@ -818,20 +832,16 @@ struct SettingsView: View {
                             }
                             .labelsHidden()
                             .pickerStyle(.menu)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                    .stroke(Color.orange, lineWidth: 1)
-                            }
 
                             Button {
                                 resetPosition()
                             } label: {
                                 itemActionIcon("arrow.counterclockwise")
                             }
-                            .buttonStyle(HoverActionButtonStyle())
-                            .premiumTooltip(localized("恢复默认位置"))
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .help(localized("恢复默认位置"))
                             .accessibilityLabel(localized("恢复默认位置"))
-                            .zIndex(10)
                         }
                     }
                 }
@@ -1020,10 +1030,10 @@ struct SettingsView: View {
         HStack(spacing: 14) {
             Image(systemName: systemImage)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.orange)
+                .foregroundStyle(.secondary)
                 .frame(width: 30, height: 30)
                 .background(
-                    Color.orange.opacity(0.10),
+                    Color.secondary.opacity(0.08),
                     in: RoundedRectangle(cornerRadius: 8, style: .continuous)
                 )
 
