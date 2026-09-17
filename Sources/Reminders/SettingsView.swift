@@ -4,12 +4,7 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
     private enum Layout {
-        // NSHostingController content does not inherit a useful top safe-area
-        // inset below a standard AppKit title bar. Keep this spacing explicit so
-        // the tab control never appears attached to the title bar.
-        static let tabBarTopInset: CGFloat = 18
-        static let tabBarBottomInset: CGFloat = 14
-        static let tabBarContainerHeight: CGFloat = 82
+        static let tabBarVerticalInset: CGFloat = 16
     }
 
     private enum SettingsTab: String, CaseIterable, Identifiable {
@@ -61,10 +56,7 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            settingsTabBar
-
-            Divider()
-                .opacity(0.55)
+            settingsHeader
 
             ScrollView {
                 selectedTabContent
@@ -74,6 +66,7 @@ struct SettingsView: View {
                     .padding(.top, 24)
                     .padding(.bottom, 30)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(SettingsAppearancePalette.contentBackground)
         }
         .frame(minWidth: 720, minHeight: 560)
@@ -87,6 +80,15 @@ struct SettingsView: View {
         .onChange(of: language) { _, _ in
             reloadBackgroundImageDisplayNames()
         }
+    }
+
+    private var settingsHeader: some View {
+        VStack(spacing: 0) {
+            settingsTabBar
+            Divider()
+                .opacity(0.55)
+        }
+        .background(SettingsAppearancePalette.windowBackground)
     }
 
     private var settingsTabBar: some View {
@@ -126,7 +128,7 @@ struct SettingsView: View {
                         RoundedRectangle(cornerRadius: 9, style: .continuous)
                             .fill(
                                 selectedTab == tab
-                                    ? SettingsAppearancePalette.windowBackground
+                                    ? SettingsAppearancePalette.controlSurface
                                     : Color.clear
                             )
                     }
@@ -156,14 +158,9 @@ struct SettingsView: View {
             RoundedRectangle(cornerRadius: 13, style: .continuous)
                 .stroke(Color.secondary.opacity(0.10), lineWidth: 1)
         }
-        .padding(.horizontal, 26)
-        .padding(.top, Layout.tabBarTopInset)
-        .padding(.bottom, Layout.tabBarBottomInset)
-        .frame(
-            maxWidth: .infinity,
-            minHeight: Layout.tabBarContainerHeight,
-            alignment: .center
-        )
+        .padding(.horizontal, 32)
+        .padding(.vertical, 16)
+        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -293,7 +290,7 @@ struct SettingsView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(
-            SettingsAppearancePalette.controlSurface.opacity(0.72),
+            SettingsAppearancePalette.controlSurface,
             in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
         .overlay {
@@ -736,7 +733,7 @@ struct SettingsView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(
-            SettingsAppearancePalette.controlSurface.opacity(0.72),
+            SettingsAppearancePalette.controlSurface,
             in: RoundedRectangle(cornerRadius: 12, style: .continuous)
         )
         .overlay {

@@ -9,22 +9,63 @@ CONTENTS_DIR="$APP_DIR/Contents"
 
 cd "$PROJECT_DIR"
 
-if [[ -z "${DEVELOPER_DIR:-}" ]]; then
-    export DEVELOPER_DIR=/Applications/Xcode-beta.app/Contents/Developer
+is_full_xcode_developer_dir() {
+    [[ -d "$1/Platforms/MacOSX.platform" && -x "$1/usr/bin/xcodebuild" ]]
+}
+
+if [[ -n "${DEVELOPER_DIR:-}" ]]; then
+    if ! is_full_xcode_developer_dir "$DEVELOPER_DIR"; then
+        print -u2 -- "Full Xcode developer directory not found: $DEVELOPER_DIR"
+        exit 1
+    fi
+else
+    SELECTED_DEVELOPER_DIR=$(/usr/bin/xcode-select --print-path 2>/dev/null || true)
+    if is_full_xcode_developer_dir "$SELECTED_DEVELOPER_DIR"; then
+        export DEVELOPER_DIR="$SELECTED_DEVELOPER_DIR"
+    elif is_full_xcode_developer_dir /Applications/Xcode.app/Contents/Developer; then
+        export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+    else
+        XCODE_APPS=(/Applications/Xcode*.app(N))
+        for XCODE_APP in "${XCODE_APPS[@]}"; do
+            CANDIDATE_DEVELOPER_DIR="$XCODE_APP/Contents/Developer"
+            if is_full_xcode_developer_dir "$CANDIDATE_DEVELOPER_DIR"; then
+                export DEVELOPER_DIR="$CANDIDATE_DEVELOPER_DIR"
+                break
+            fi
+        done
+    fi
 fi
-if [[ ! -d "$DEVELOPER_DIR" ]]; then
-    print -u2 -- "Xcode developer directory not found: $DEVELOPER_DIR"
+
+if [[ -z "${DEVELOPER_DIR:-}" ]]; then
+    print -u2 -- "A full Xcode installation is required. Install Xcode or set DEVELOPER_DIR."
     exit 1
 fi
 
 export CLANG_MODULE_CACHE_PATH="$PROJECT_DIR/.build/clang-module-cache"
 export SWIFTPM_MODULECACHE_OVERRIDE="$PROJECT_DIR/.build/swiftpm-module-cache"
 export XDG_CACHE_HOME="$PROJECT_DIR/.build/cache"
-mkdir -p "$CLANG_MODULE_CACHE_PATH" "$SWIFTPM_MODULECACHE_OVERRIDE" "$XDG_CACHE_HOME"
+SWIFTPM_CACHE_PATH="$PROJECT_DIR/.build/swiftpm-cache"
+SWIFTPM_CONFIG_PATH="$PROJECT_DIR/.build/swiftpm-config"
+SWIFTPM_SECURITY_PATH="$PROJECT_DIR/.build/swiftpm-security"
+SWIFTPM_SCRATCH_PATH="$PROJECT_DIR/.build"
+mkdir -p \
+    "$CLANG_MODULE_CACHE_PATH" \
+    "$SWIFTPM_MODULECACHE_OVERRIDE" \
+    "$XDG_CACHE_HOME" \
+    "$SWIFTPM_CACHE_PATH" \
+    "$SWIFTPM_CONFIG_PATH" \
+    "$SWIFTPM_SECURITY_PATH"
+
+SWIFTPM_PATH_ARGUMENTS=(
+    --cache-path "$SWIFTPM_CACHE_PATH"
+    --config-path "$SWIFTPM_CONFIG_PATH"
+    --security-path "$SWIFTPM_SECURITY_PATH"
+    --scratch-path "$SWIFTPM_SCRATCH_PATH"
+)
 
 if [[ "${1:-}" == "--test" ]]; then
     shift
-    xcrun swift test --disable-sandbox "$@"
+    xcrun swift test "${SWIFTPM_PATH_ARGUMENTS[@]}" --disable-sandbox "$@"
     exit
 fi
 
@@ -77,6 +118,7 @@ fi
 SDK_VERSION=$(xcrun --sdk macosx --show-sdk-version)
 MINIMUM_SYSTEM_VERSION=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$PROJECT_DIR/Info.plist")
 BUILD_ARGUMENTS=(
+    "${SWIFTPM_PATH_ARGUMENTS[@]}"
     --configuration release
     --disable-sandbox
     -Xswiftc -gnone
@@ -118,15 +160,23 @@ trap 'rm -rf "$DMG_STAGING_DIR"' EXIT
 ditto "$APP_DIR" "$DMG_STAGING_DIR/Reminders.app"
 ln -s /Applications "$DMG_STAGING_DIR/Applications"
 rm -f "$DISK_IMAGE_PATH"
-hdiutil create \
+DMG_CREATED=0
+if hdiutil create \
     -quiet \
     -volname "Reminders $RELEASE_VERSION" \
     -srcfolder "$DMG_STAGING_DIR" \
     -ov \
     -format UDZO \
-    "$DISK_IMAGE_PATH"
+    "$DISK_IMAGE_PATH"; then
+    DMG_CREATED=1
+else
+    rm -f "$DISK_IMAGE_PATH"
+    print -u2 -- "Warning: DMG creation requires DiskImages access; app and ZIP were built successfully."
+fi
 
 print -r -- "$APP_DIR"
 print -r -- "$ARCHIVE_PATH"
-print -r -- "$DISK_IMAGE_PATH"
+if (( DMG_CREATED )); then
+    print -r -- "$DISK_IMAGE_PATH"
+fi
 print -r -- "Version $RELEASE_VERSION (build $BUILD_VERSION)"

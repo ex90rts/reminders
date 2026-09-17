@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import XCTest
 @testable import Reminders
 
@@ -372,6 +373,69 @@ final class ConfigurationStoreTests: XCTestCase {
             let visibility = item.value(forKey: "preferredImageVisibility") as? NSNumber
             XCTAssertEqual(visibility?.intValue, 2)
         }
+    }
+
+    func testSettingsPaletteKeepsCanvasAndCardsDistinctInBothAppearances() throws {
+        let aqua = try XCTUnwrap(NSAppearance(named: .aqua))
+        let darkAqua = try XCTUnwrap(NSAppearance(named: .darkAqua))
+
+        let lightCanvas = try resolvedSRGB(
+            SettingsAppearancePalette.contentBackgroundNSColor,
+            in: aqua
+        )
+        let lightSurface = try resolvedSRGB(
+            SettingsAppearancePalette.controlSurfaceNSColor,
+            in: aqua
+        )
+        let darkCanvas = try resolvedSRGB(
+            SettingsAppearancePalette.contentBackgroundNSColor,
+            in: darkAqua
+        )
+        let darkSurface = try resolvedSRGB(
+            SettingsAppearancePalette.controlSurfaceNSColor,
+            in: darkAqua
+        )
+
+        XCTAssertGreaterThan(lightCanvas.redComponent, 0.80)
+        XCTAssertLessThan(lightCanvas.redComponent, 0.98)
+        XCTAssertGreaterThan(lightSurface.redComponent, 0.98)
+        XCTAssertGreaterThan(lightSurface.redComponent, lightCanvas.redComponent)
+
+        XCTAssertLessThan(darkCanvas.redComponent, 0.30)
+        XCTAssertLessThan(darkSurface.redComponent, 0.30)
+        XCTAssertLessThan(darkSurface.redComponent, darkCanvas.redComponent)
+    }
+
+    func testSettingsWindowKeepsSystemSafeAreaForTitleBar() throws {
+        let store = ConfigurationStore(defaults: defaults, storageKey: "test")
+        let controller = SettingsWindowController(
+            store: store,
+            resetPosition: {},
+            previewTimedReminder: { _ in }
+        )
+
+        let hostingController = try XCTUnwrap(
+            controller.contentViewController as? NSHostingController<SettingsView>
+        )
+        XCTAssertFalse(hostingController.safeAreaRegions.isEmpty)
+    }
+
+    func testSettingsWindowMinimumFrameFitsItsContentBelowTitleBar() throws {
+        let store = ConfigurationStore(defaults: defaults, storageKey: "test")
+        let controller = SettingsWindowController(
+            store: store,
+            resetPosition: {},
+            previewTimedReminder: { _ in }
+        )
+        let window = try XCTUnwrap(controller.window)
+        let contentView = try XCTUnwrap(window.contentView)
+        let minimumContent = window.contentRect(
+            forFrameRect: CGRect(origin: .zero, size: window.minSize)
+        ).size
+        let requiredContent = contentView.fittingSize
+
+        XCTAssertGreaterThanOrEqual(minimumContent.width, requiredContent.width)
+        XCTAssertGreaterThanOrEqual(minimumContent.height, requiredContent.height)
     }
 
     func testTimedReminderDefaultsToNoSound() {
@@ -1134,6 +1198,17 @@ final class ConfigurationStoreTests: XCTestCase {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         return calendar
+    }
+
+    private func resolvedSRGB(
+        _ color: NSColor,
+        in appearance: NSAppearance
+    ) throws -> NSColor {
+        var resolvedColor: NSColor?
+        appearance.performAsCurrentDrawingAppearance {
+            resolvedColor = color.usingColorSpace(.sRGB)
+        }
+        return try XCTUnwrap(resolvedColor)
     }
 
     private func makeTestPNGData() throws -> Data {

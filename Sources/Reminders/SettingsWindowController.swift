@@ -22,12 +22,22 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
+        let hostingController = NSHostingController(rootView: content)
         window.title = store.configuration.displayLanguage.localized("清醒贴设置")
-        window.contentViewController = NSHostingController(rootView: content)
-        window.minSize = CGSize(width: 720, height: 560)
+        window.contentViewController = hostingController
+        // Match the SwiftUI minimum in content coordinates, excluding the title bar.
+        window.contentMinSize = CGSize(width: 720, height: 560)
         window.isReleasedWhenClosed = false
         window.center()
         window.setFrameAutosaveName("settings-window")
+        let restoredContentSize = window.contentRect(forFrameRect: window.frame).size
+        if restoredContentSize.width < window.contentMinSize.width
+            || restoredContentSize.height < window.contentMinSize.height {
+            window.setContentSize(CGSize(
+                width: max(restoredContentSize.width, window.contentMinSize.width),
+                height: max(restoredContentSize.height, window.contentMinSize.height)
+            ))
+        }
 
         super.init(window: window)
         window.delegate = self

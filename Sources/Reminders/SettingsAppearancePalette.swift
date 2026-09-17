@@ -6,12 +6,20 @@ enum SettingsAppearancePalette {
         Color(nsColor: .windowBackgroundColor)
     }
 
+    static var contentBackgroundNSColor: NSColor {
+        .windowBackgroundColor
+    }
+
     static var contentBackground: Color {
-        Color(nsColor: .underPageBackgroundColor)
+        Color(nsColor: contentBackgroundNSColor)
+    }
+
+    static var controlSurfaceNSColor: NSColor {
+        .controlBackgroundColor
     }
 
     static var controlSurface: Color {
-        windowBackground
+        Color(nsColor: controlSurfaceNSColor)
     }
 
     static var shadow: Color {
